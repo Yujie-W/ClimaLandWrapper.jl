@@ -1,0 +1,13 @@
+name = "ClimaLandWrapper"
+uuid = "5c8a88bc-0a8b-42ba-bd71-aa004435bd2a"
+authors = ["Yujie Wang <jesiner@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+ClimaCore = "d414da3d-4745-48bb-8d80-42e94e092884"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Land = "27e3c115-2cb8-4114-b7a5-cd9f011f9dcc"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
