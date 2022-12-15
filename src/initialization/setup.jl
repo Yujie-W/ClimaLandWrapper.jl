@@ -346,7 +346,7 @@ function create_climaatmos_parameter_set(
     toml_dict::AbstractTOMLDict,
     overrides::NamedTuple = NamedTuple(),
 )
-    FT = float_type(toml_dict)
+    FT = CLIMAParameters.float_type(toml_dict)
     FTD = FT # can change to Dual for testing duals
 
     aliases = string.(fieldnames(ThermodynamicsParameters))

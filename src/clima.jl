@@ -64,7 +64,7 @@ function run_clima_example!(; fast_testing::Bool = true)
         is_debugging_tc = _parsed_args["debugging_tc"],
         output_dir = parse_arg(_parsed_args, "output_dir", (haskey(ENV, "CI") ? _job_id : joinpath("output", _job_id))),
         restart = haskey(ENV, "RESTART_FILE"),
-        job_id_from_parsed_args(_settings, _parsed_args),
+        job_id = _job_id,
         dt = FT(time_to_seconds(_parsed_args["dt"])),
         start_date = DateTime(_parsed_args["start_date"], dateformat"yyyymmdd"),
         t_end = FT(time_to_seconds(_parsed_args["t_end"])),
@@ -81,20 +81,22 @@ function run_clima_example!(; fast_testing::Bool = true)
         (Y, t_start) = get_state_fresh_start(_parsed_args, spaces, _params, atmos);
     end;
 
-    p = get_cache(Y, _parsed_args, _params, spaces, atmos, numerics, _simulation)
+    _numerics = get_numerics(_parsed_args);
+    p = get_cache(Y, _parsed_args, _params, spaces, atmos, _numerics, _simulation)
     if _parsed_args["turbconv"] == "edmf"
-        @time "init_tc!" TCU.init_tc!(Y, p, _params)
+        @time "init_tc!" init_tc!(Y, p, _params)
     end
 
     if _parsed_args["discrete_hydrostatic_balance"]
         set_discrete_hydrostatic_balanced_state!(Y, p)
     end
 
+    #=
     # Print tendencies:
     # @info "Model composition" p.atmos...
     @info "Tendencies" p.tendency_knobs...
 
-    @time "ode_configuration" ode_algo = ode_configuration(Y, parsed_args, atmos)
+    @time "ode_configuration" ode_algo = ode_configuration(Y, _parsed_args, atmos)
 
     include("callbacks.jl")
 
@@ -112,7 +114,7 @@ function run_clima_example!(; fast_testing::Bool = true)
 
     atmos_sim = atmos_init(FT, Y, integrator, params = _params);
 
-
+    =#
 
     #
 
