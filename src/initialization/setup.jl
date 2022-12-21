@@ -49,7 +49,7 @@ function clima_setup(; fast_testing::Bool = true)
         "--FLOAT_TYPE"
         help = "Float type"
         arg_type = String
-        default = "Float32"
+        default = "Float64"
         "--t_end"
         help = "Simulation end time. Examples: [`1200days`, `40secs`]"
         arg_type = String
@@ -299,6 +299,24 @@ function clima_setup(; fast_testing::Bool = true)
         help = "Apply parameterization for convective gravity wave forcing on horizontal mean flow"
         arg_type = Bool
         default = false
+
+        # add perf_mode and surface_thermo_state_type into the args
+        "--perf_mode"
+        help = "Perf mode used to initialize CliMA Atoms"
+        arg_type = String
+        default = "nothing"
+        "--surface_thermo_state_type"
+        help = "Surface thermo state type to initialize CliMA Atoms"
+        arg_type = String
+        default = "GCMSurfaceThermoState"
+        "--test_dycore_consistency"
+        help = "Whether to test consistency in dycore"
+        arg_type = Bool
+        default = false
+        "--discrete_hydrostatic_balance"
+        help = "Whether to discrete hydrostatic balance"
+        arg_type = Bool
+        default = false
     end
     _parsed_args = parse_args(ARGS, _settings);
 
@@ -520,6 +538,15 @@ function time_to_seconds(s::String)
         return parse(Float64, first(split(s, match))) * factor[match]
     end
     error("Uncaught case in computing time from given string.")
+end
+
+function cli_defaults(s::ArgParseSettings)
+    defaults = Dict()
+    # TODO: Don't use ArgParse internals
+    for arg in s.args_table.fields
+        defaults[arg.dest_name] = arg.default
+    end
+    return defaults
 end
 
 function job_id_from_parsed_args(defaults::Dict, parsed_args)

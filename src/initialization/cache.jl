@@ -52,7 +52,7 @@ function default_cache(Y, parsed_args, params, atmos, spaces, numerics, simulati
     (; energy_upwinding, tracer_upwinding, apply_limiter) = numerics
     ᶜcoord = local_geometry_field(Y.c).coordinates
     ᶠcoord = local_geometry_field(Y.f).coordinates
-    ᶜΦ = grav(params) .* ᶜcoord.z
+    ᶜΦ = ClimaAtmos.Parameters.grav(params) .* ᶜcoord.z
     z_sfc = level(ᶠcoord.z, half)
     if eltype(ᶜcoord) <: LatLongZPoint
         Ω = Omega(params)
@@ -257,6 +257,8 @@ function data_loader(fn, file_name)
         fn(ds)
     end
 end
+
+turbconv_cache(Y, turbconv_model::Nothing, atmos, namelist, param_set, parsed_args,) = (; turbconv_model)
 
 function turbconv_cache(Y, turbconv_model::EDMFModel, atmos, namelist, param_set, parsed_args)
     tc_params = turbconv_params(param_set)

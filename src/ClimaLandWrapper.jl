@@ -1,5 +1,6 @@
 module ClimaLandWrapper
 
+using ClimaAtmos
 using CLIMAParameters
 using ClimaTimeSteppers
 using JSON
@@ -65,8 +66,10 @@ using ClimaCore.Operators: Operator2Stencil, StencilCoefs
 using ClimaCore.Operators: SetValue
 using ClimaCore.Operators: Upwind3rdOrderBiasedProductC2F, UpwindBiasedProductC2F
 
-using ClimaCore.Spaces: CenterExtrudedFiniteDifferenceSpace, CenterFiniteDifferenceSpace, ExtrudedFiniteDifferenceSpace, FaceExtrudedFiniteDifferenceSpace, FaceFiniteDifferenceSpace, Quadratures,
-      SpectralElementSpace2D, create_ghost_buffer, horizontal_space, undertype, vertical_topology
+using ClimaCore.Spaces: CenterExtrudedFiniteDifferenceSpace, CenterFiniteDifferenceSpace, ExtrudedFiniteDifferenceSpace, FaceExtrudedFiniteDifferenceSpace, FaceFiniteDifferenceSpace
+using ClimaCore.Spaces: Quadratures, SpectralElementSpace2D
+using ClimaCore.Spaces: create_ghost_buffer, horizontal_space, undertype, vertical_topology
+
 using ClimaCore.Topologies: DistributedTopology2D, IntervalTopology, spacefillingcurve
 using ClimaCore.Utilities: half
 

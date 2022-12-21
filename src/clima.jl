@@ -58,7 +58,7 @@ function run_clima_example!(; fast_testing::Bool = true)
     # 4. set up parameter set and modules
     parse_arg(pa, key, default) = isnothing(pa[key]) ? default : pa[key];
     _params = parameter_set(FT, _parsed_args);
-    _job_id = job_id_from_parsed_args(_settings, _parsed_args);
+    _job_id = job_id_from_parsed_args(cli_defaults(_settings), _parsed_args);
     _simulation = (;
         is_distributed = haskey(ENV, "CLIMACORE_DISTRIBUTED"),
         is_debugging_tc = _parsed_args["debugging_tc"],
