@@ -1,4 +1,4 @@
-function get_callbacks(parsed_args, simulation, atmos, params)
+function get_callbacks(Y, parsed_args, simulation, atmos, comm_ctx, params)
     FT = eltype(params)
     (; dt) = simulation
 

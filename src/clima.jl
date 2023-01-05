@@ -92,7 +92,7 @@ function run_clima_example!(; fast_testing::Bool = true)
     end
 
     @time "ode_configuration" _ode_algo = ode_configuration(Y, _parsed_args, _atmos)
-    # @time "get_callbacks" callback = get_callbacks(_parsed_args, _simulation, _atmos, _params);
+    @time "get_callbacks" callback = get_callbacks(Y, _parsed_args, _simulation, _atmos, _comms_ctx, _params);
     # @time "args_integrator" integrator_args, integrator_kwargs = args_integrator(_parsed_args, Y, p, _t_span, _ode_algo, callback)
     # @time "get_integrator" integrator = get_integrator(integrator_args, integrator_kwargs)
     # atmos_sim = atmos_init(FT, Y, integrator, params = _params);

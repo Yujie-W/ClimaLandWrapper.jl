@@ -325,6 +325,10 @@ function clima_setup(; fast_testing::Bool = true)
         help = "Whether to discrete hydrostatic balance"
         arg_type = Bool
         default = false
+        "--check_conservation"
+        help = "Whether to check conservation"
+        arg_type = Bool
+        default = false
     end
     _parsed_args = parse_args(ARGS, _settings);
 
