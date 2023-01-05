@@ -35,7 +35,7 @@ function ode_configuration(Y, parsed_args, atmos)
             κ = parsed_args["max_newton_iters"] == 2 ? Inf : 0.01,
             max_iter = parsed_args["max_newton_iters"],
         )
-        return alg_or_tableau(; linsolve = ATOMS.linsolve!, nlsolve)
+        return alg_or_tableau(; linsolve = ATMOS.linsolve!, nlsolve)
     elseif is_imex_CTS_algo_type(alg_or_tableau)
         newtons_method = TSTEP.NewtonsMethod(;
             max_iters = parsed_args["max_newton_iters"],
@@ -65,6 +65,6 @@ function ode_configuration(Y, parsed_args, atmos)
         );
         return TSTEP.IMEXARKAlgorithm(alg_or_tableau(), newtons_method)
     else
-        return alg_or_tableau(; linsolve = ATOMS.linsolve!)
+        return alg_or_tableau(; linsolve = ATMOS.linsolve!)
     end
 end

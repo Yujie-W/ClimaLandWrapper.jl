@@ -88,7 +88,7 @@ function run_clima_example!(; fast_testing::Bool = true)
     end
 
     if _parsed_args["discrete_hydrostatic_balance"]
-        ATOMS.set_discrete_hydrostatic_balanced_state!(Y, p)
+        ATMOS.set_discrete_hydrostatic_balanced_state!(Y, p)
     end
 
     @time "ode_configuration" _ode_algo = ode_configuration(Y, _parsed_args, _atmos)

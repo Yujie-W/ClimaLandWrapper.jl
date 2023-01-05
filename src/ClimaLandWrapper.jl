@@ -5,12 +5,12 @@ using LazyArtifacts
 using Revise
 
 import AtmosphericProfilesLibrary as APL
-import ClimaAtmos as ATOMS
-import ClimaAtmos.InitialConditions as ATOMS_IC
-import ClimaAtmos.Parameters as ATOMS_P
-import ClimaAtmos.RRTMGPInterface as ATOMS_RRTMGPI
-import ClimaAtmos.TurbulenceConvection as ATOMS_TC
-import ClimaAtmos.TurbulenceConvection.Parameters as ATOMS_TC_P
+import ClimaAtmos as ATMOS
+import ClimaAtmos.InitialConditions as ATMOS_IC
+import ClimaAtmos.Parameters as ATMOS_P
+import ClimaAtmos.RRTMGPInterface as ATMOS_RRTMGPI
+import ClimaAtmos.TurbulenceConvection as ATMOS_TC
+import ClimaAtmos.TurbulenceConvection.Parameters as ATMOS_TC_P
 import ClimaComms as COMMS
 import ClimaCore.Domains as CORE_D
 import ClimaCore.Fields as CORE_F
@@ -25,7 +25,9 @@ import ClimaCore.Topologies as CORE_T
 import ClimaCore.Utilities as CORE_U
 import CLIMAParameters as PARAM
 import ClimaTimeSteppers as TSTEP
+import CloudMicrophysics as CLOUD
 import CloudMicrophysics.Parameters as CLOUD_P
+import Insolation as SOLAR
 import Insolation.Parameters as SOLAR_P
 import RRTMGP.Parameters as RRTMGP_P
 import SurfaceFluxes as SFLUX
@@ -40,10 +42,11 @@ using Land.ClimaCache: MonoMLTreeSPAC
 
 using ArgParse: ArgParseSettings, parse_args, @add_arg_table
 using Colors: @colorant_str
-using Dates: DateTime, @dateformat_str
+using Dates: DateTime, Second, @dateformat_str
 using Dierckx: Spline1D
 using LinearAlgebra: norm_sqr
 using NCDatasets: Dataset
+using NVTX: @range, Domain
 using Random: seed!
 using StaticArrays: SVector
 

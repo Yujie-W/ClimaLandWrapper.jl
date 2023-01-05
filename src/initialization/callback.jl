@@ -1,4 +1,3 @@
-#=
 function get_callbacks(parsed_args, simulation, atmos, params)
     FT = eltype(params)
     (; dt) = simulation
@@ -12,7 +11,7 @@ function get_callbacks(parsed_args, simulation, atmos, params)
     )
 
     additional_callbacks =
-        if atmos.radiation_mode isa AbstractRRTMGPMode
+        if atmos.radiation_mode isa ATMOS_RRTMGPI.AbstractRRTMGPMode
             # TODO: better if-else criteria?
             dt_rad = if parsed_args["config"] == "column"
                 dt
@@ -65,7 +64,7 @@ function get_callbacks(parsed_args, simulation, atmos, params)
         nothing
     end
 
-    return CallbackSet(
+    return ODE.CallbackSet(
         dss_cb,
         save_to_disk_callback,
         save_restart_callback,
@@ -74,25 +73,9 @@ function get_callbacks(parsed_args, simulation, atmos, params)
     )
 end
 
-function dss_callback(integrator)
-    Y = integrator.u
-    ghost_buffer = integrator.p.ghost_buffer
-    if !ghost_buffer.skip_dss
-        @nvtx "dss callback" color = colorant"yellow" begin
-            weighted_dss_start2!(Y.c, ghost_buffer.c)
-            weighted_dss_start2!(Y.f, ghost_buffer.f)
-            weighted_dss_internal2!(Y.c, ghost_buffer.c)
-            weighted_dss_internal2!(Y.f, ghost_buffer.f)
-            weighted_dss_ghost2!(Y.c, ghost_buffer.c)
-            weighted_dss_ghost2!(Y.f, ghost_buffer.f)
-        end
-    end
-    # ODE.u_modified!(integrator, false) # TODO: try this
-end
-
 function call_every_n_steps(f!, n = 1; skip_first = false, call_at_end = false)
     previous_step = Ref(0)
-    return DiscreteCallback(
+    return ODE.DiscreteCallback(
         (u, t, integrator) ->
             (previous_step[] += 1) % n == 0 ||
                 (call_at_end && t == integrator.sol.prob.tspan[2]),
@@ -114,7 +97,7 @@ function call_every_dt(f!, dt; skip_first = false, call_at_end = false)
             next_t[] = min(next_t[], t_end)
         end
     end
-    return DiscreteCallback(
+    return ODE.DiscreteCallback(
         (u, t, integrator) -> t >= next_t[],
         affect!;
         initialize = (cb, u, t, integrator) -> begin
@@ -127,17 +110,46 @@ function call_every_dt(f!, dt; skip_first = false, call_at_end = false)
     )
 end
 
+macro nvtx(message, args...)
+    expr = args[end]
+    args = args[1:(end - 1)]
+    quote
+        @range(
+            $message,
+            domain = Domain(ClimaAtmos),
+            $(args...),
+            $(esc(expr))
+        )
+    end
+end
+
+function dss_callback(integrator)
+    Y = integrator.u
+    ghost_buffer = integrator.p.ghost_buffer
+    if !ghost_buffer.skip_dss
+        @nvtx "dss callback" color = colorant"yellow" begin
+            CORE_S.weighted_dss_start2!(Y.c, ghost_buffer.c)
+            CORE_S.weighted_dss_start2!(Y.f, ghost_buffer.f)
+            CORE_S.weighted_dss_internal2!(Y.c, ghost_buffer.c)
+            CORE_S.weighted_dss_internal2!(Y.f, ghost_buffer.f)
+            CORE_S.weighted_dss_ghost2!(Y.c, ghost_buffer.c)
+            CORE_S.weighted_dss_ghost2!(Y.f, ghost_buffer.f)
+        end
+    end
+    # ODE.u_modified!(integrator, false) # TODO: try this
+end
+
 function turb_conv_affect_filter!(integrator)
     p = integrator.p
     (; edmf_cache, Δt) = p
     (; edmf, param_set, aux, case, surf_params) = edmf_cache
     t = integrator.t
     Y = integrator.u
-    tc_params = turbconv_params(param_set)
+    tc_params = ATMOS_P.turbconv_params(param_set)
 
-    bycolumn(axes(Y.c)) do colidx
-        state = tc_column_state(Y, p, nothing, colidx)
-        grid = Grid(state)
+    CORE_F.bycolumn(axes(Y.c)) do colidx
+        state = ATMOS_TC.tc_column_state(Y, p, nothing, colidx)
+        grid = ATMOS_TC.Grid(state)
         surf = get_surface(
             p.atmos.model_config,
             surf_params,
@@ -146,33 +158,30 @@ function turb_conv_affect_filter!(integrator)
             t,
             tc_params,
         )
-        affect_filter!(edmf, grid, state, tc_params, surf, t)
+        ATMOS_TC.affect_filter!(edmf, grid, state, tc_params, surf, t)
     end
 
     # We're lying to OrdinaryDiffEq.jl, in order to avoid
     # paying for an additional `∑tendencies!` call, which is required
     # to support supplying a continuous representation of the
     # solution.
-    u_modified!(integrator, false)
+    ODE.u_modified!(integrator, false)
 end
 
-horizontal_integral_at_boundary(f, lev) = sum(level(f, lev) ./ dz_field(axes(level(f, lev))) .* 2)
+horizontal_integral_at_boundary(f, lev) = sum(
+    CORE_S.level(f, lev) ./ CORE_F.dz_field(axes(CORE_S.level(f, lev))) .* 2,
+)
 
-function flux_accumulation!(integrator)
+function flux_accumulation!(Y, integrator)
     p = integrator.p
     if !isnothing(p.radiation_model)
         (; ᶠradiation_flux, net_energy_flux_toa, net_energy_flux_sfc, Δt) = p
-        nlevels = nlevels(axes(Y.c))
-        net_energy_flux_toa[] +=
-            horizontal_integral_at_boundary(ᶠradiation_flux, nlevels + half) *
-            Δt
-        net_energy_flux_sfc[] +=
-            horizontal_integral_at_boundary(ᶠradiation_flux, half) * Δt
+        nlevels = CORE_S.nlevels(axes(Y.c))
+        net_energy_flux_toa[] += horizontal_integral_at_boundary(ᶠradiation_flux, nlevels + CORE_U.half) * Δt
+        net_energy_flux_sfc[] += horizontal_integral_at_boundary(ᶠradiation_flux, CORE_U.half) * Δt
     end
 end
-=#
 
-#=
 function rrtmgp_model_callback!(integrator)
     Y = integrator.u
     p = integrator.p
@@ -182,21 +191,21 @@ function rrtmgp_model_callback!(integrator)
     (; idealized_insolation, idealized_h2o, idealized_clouds) = p
     (; insolation_tuple, ᶠradiation_flux, radiation_model) = p
     (; ᶜinterp) = p.operators
-    thermo_params = CAP.thermodynamics_params(params)
-    insolation_params = CAP.insolation_params(params)
+    thermo_params = ATMOS_P.thermodynamics_params(params)
+    insolation_params = ATMOS_P.insolation_params(params)
 
-    radiation_model.surface_temperature .= RRTMGPI.field2array(T_sfc)
+    radiation_model.surface_temperature .= ATMOS_RRTMGPI.field2array(T_sfc)
 
-    C123 = Geometry.Covariant123Vector
-    ᶜp = RRTMGPI.array2field(radiation_model.center_pressure, axes(Y.c))
-    ᶜT = RRTMGPI.array2field(radiation_model.center_temperature, axes(Y.c))
-    @. ᶜK = LinearAlgebra.norm_sqr(C123(Y.c.uₕ) + C123(ᶜinterp(Y.f.w))) / 2
-    ATOMS.thermo_state!(Y, p, ᶜinterp; time = t)
-    @. ᶜp = TD.air_pressure(thermo_params, ᶜts)
-    @. ᶜT = TD.air_temperature(thermo_params, ᶜts)
+    C123 = CORE_G.Covariant123Vector
+    ᶜp = ATMOS_RRTMGPI.array2field(radiation_model.center_pressure, axes(Y.c))
+    ᶜT = ATMOS_RRTMGPI.array2field(radiation_model.center_temperature, axes(Y.c))
+    @. ᶜK = norm_sqr(C123(Y.c.uₕ) + C123(ᶜinterp(Y.f.w))) / 2
+    ATMOS.thermo_state!(Y, p, ᶜinterp; time = t)
+    @. ᶜp = THERM.air_pressure(thermo_params, ᶜts)
+    @. ᶜT = THERM.air_temperature(thermo_params, ᶜts)
 
-    if !(radiation_model.radiation_mode isa RRTMGPI.GrayRadiation)
-        ᶜvmr_h2o = RRTMGPI.array2field(
+    if !(radiation_model.radiation_mode isa ATMOS_RRTMGPI.GrayRadiation)
+        ᶜvmr_h2o = ATMOS_RRTMGPI.array2field(
             radiation_model.center_volume_mixing_ratio_h2o,
             axes(Y.c),
         )
@@ -211,44 +220,40 @@ function rrtmgp_model_callback!(integrator)
 
             # temporarily store ᶜq_tot in ᶜvmr_h2o
             ᶜq_tot = ᶜvmr_h2o
-            @. ᶜq_tot =
-                max_relative_humidity * TD.q_vap_saturation(thermo_params, ᶜts)
+            @. ᶜq_tot = max_relative_humidity * THERM.q_vap_saturation(thermo_params, ᶜts)
 
             # filter ᶜq_tot so that it is monotonically decreasing with z
-            for i in 2:Spaces.nlevels(axes(ᶜq_tot))
-                level = Fields.field_values(Spaces.level(ᶜq_tot, i))
-                prev_level = Fields.field_values(Spaces.level(ᶜq_tot, i - 1))
+            for i in 2:CORE_S.nlevels(axes(ᶜq_tot))
+                level = CORE_F.field_values(CORE_S.level(ᶜq_tot, i))
+                prev_level = CORE_F.field_values(CORE_S.level(ᶜq_tot, i - 1))
                 @. level = min(level, prev_level)
             end
 
             # assume that ᶜq_vap = ᶜq_tot when computing ᶜvmr_h2o
-            @. ᶜvmr_h2o = TD.shum_to_mixing_ratio(ᶜq_tot, ᶜq_tot)
+            @. ᶜvmr_h2o = THERM.shum_to_mixing_ratio(ᶜq_tot, ᶜq_tot)
         else
-            @. ᶜvmr_h2o = TD.vol_vapor_mixing_ratio(
-                thermo_params,
-                TD.PhasePartition(thermo_params, ᶜts),
-            )
+            @. ᶜvmr_h2o = THERM.vol_vapor_mixing_ratio(thermo_params, THERM.PhasePartition(thermo_params, ᶜts))
         end
     end
 
     if !idealized_insolation
-        current_datetime = p.simulation.start_date + Dates.Second(round(Int, t)) # current time
+        current_datetime = p.simulation.start_date + Second(round(Int, t)) # current time
         max_zenith_angle = FT(π) / 2 - eps(FT)
-        irradiance = FT(CAP.tot_solar_irrad(params))
-        au = FT(CAP.astro_unit(params))
+        irradiance = FT(ATMOS_P.tot_solar_irrad(params))
+        au = FT(ATMOS_P.astro_unit(params))
 
-        bottom_coords = Fields.coordinate_field(Spaces.level(Y.c, 1))
-        if eltype(bottom_coords) <: Geometry.LatLongZPoint
-            solar_zenith_angle = RRTMGPI.array2field(
+        bottom_coords = CORE_F.coordinate_field(CORE_S.level(Y.c, 1))
+        if eltype(bottom_coords) <: CORE_G.LatLongZPoint
+            solar_zenith_angle = ATMOS_RRTMGPI.array2field(
                 radiation_model.solar_zenith_angle,
                 axes(bottom_coords),
             )
-            weighted_irradiance = RRTMGPI.array2field(
+            weighted_irradiance = ATMOS_RRTMGPI.array2field(
                 radiation_model.weighted_irradiance,
                 axes(bottom_coords),
             )
             ref_insolation_params = Ref(insolation_params)
-            @. insolation_tuple = instantaneous_zenith_angle(
+            @. insolation_tuple = SOLAR.instantaneous_zenith_angle(
                 current_datetime,
                 Float64(bottom_coords.long),
                 Float64(bottom_coords.lat),
@@ -260,7 +265,7 @@ function rrtmgp_model_callback!(integrator)
                 irradiance * (au / last(insolation_tuple))^2
         else
             # assume that the latitude and longitude are both 0 for flat space
-            insolation_tuple = instantaneous_zenith_angle(
+            insolation_tuple = SOLAR.instantaneous_zenith_angle(
                 current_datetime,
                 0.0,
                 0.0,
@@ -274,44 +279,42 @@ function rrtmgp_model_callback!(integrator)
     end
 
     if !idealized_clouds && !(
-        radiation_model.radiation_mode isa RRTMGPI.GrayRadiation ||
-        radiation_model.radiation_mode isa RRTMGPI.ClearSkyRadiation
+        radiation_model.radiation_mode isa ATMOS_RRTMGPI.GrayRadiation ||
+        radiation_model.radiation_mode isa ATMOS_RRTMGPI.ClearSkyRadiation
     )
-        ᶜΔz = Fields.local_geometry_field(Y.c).∂x∂ξ.components.data.:9
-        ᶜlwp = RRTMGPI.array2field(
+        ᶜΔz = CORE_F.local_geometry_field(Y.c).∂x∂ξ.components.data.:9
+        ᶜlwp = ATMOS_RRTMGPI.array2field(
             radiation_model.center_cloud_liquid_water_path,
             axes(Y.c),
         )
-        ᶜiwp = RRTMGPI.array2field(
+        ᶜiwp = ATMOS_RRTMGPI.array2field(
             radiation_model.center_cloud_ice_water_path,
             axes(Y.c),
         )
-        ᶜfrac = RRTMGPI.array2field(
+        ᶜfrac = ATMOS_RRTMGPI.array2field(
             radiation_model.center_cloud_fraction,
             axes(Y.c),
         )
         # multiply by 1000 to convert from kg/m^2 to g/m^2
         @. ᶜlwp =
-            1000 * Y.c.ρ * TD.liquid_specific_humidity(thermo_params, ᶜts) * ᶜΔz
+            1000 * Y.c.ρ * THERM.liquid_specific_humidity(thermo_params, ᶜts) * ᶜΔz
         @. ᶜiwp =
-            1000 * Y.c.ρ * TD.ice_specific_humidity(thermo_params, ᶜts) * ᶜΔz
+            1000 * Y.c.ρ * THERM.ice_specific_humidity(thermo_params, ᶜts) * ᶜΔz
         @. ᶜfrac =
-            ifelse(TD.has_condensate(thermo_params, ᶜts), FT(1), FT(0) * ᶜΔz)
+            ifelse(THERM.has_condensate(thermo_params, ᶜts), FT(1), FT(0) * ᶜΔz)
     end
 
-    RRTMGPI.update_fluxes!(radiation_model)
-    RRTMGPI.field2array(ᶠradiation_flux) .= radiation_model.face_flux
+    ATMOS_RRTMGPI.update_fluxes!(radiation_model)
+    ATMOS_RRTMGPI.field2array(ᶠradiation_flux) .= radiation_model.face_flux
 end
-=#
 
-#=
-function save_to_disk_func(integrator)
+function save_to_disk_func(atmos, comms_ctx, integrator)
 
     (; t, u, p) = integrator
     (; output_dir) = p.simulation
     Y = u
 
-    if p.atmos.precip_model isa Microphysics0Moment
+    if p.atmos.precip_model isa ATMOS.Microphysics0Moment
         (;
             ᶜts,
             ᶜp,
@@ -329,8 +332,8 @@ function save_to_disk_func(integrator)
         (; ᶜts, ᶜp, params, ᶜK, T_sfc, ts_sfc) = p
     end
 
-    thermo_params = CAP.thermodynamics_params(params)
-    cm_params = CAP.microphysics_params(params)
+    thermo_params = ATMOS_P.thermodynamics_params(params)
+    cm_params = ATMOS_P.microphysics_params(params)
 
     ᶜuₕ = Y.c.uₕ
     ᶠw = Y.f.w
@@ -338,17 +341,17 @@ function save_to_disk_func(integrator)
     @. ᶜK = norm_sqr(C123(ᶜuₕ) + C123(ᶜinterp(ᶠw))) / 2
 
     # thermo state
-    ATOMS.thermo_state!(Y, p, ᶜinterp; time = t)
-    @. ᶜp = TD.air_pressure(thermo_params, ᶜts)
-    ᶜT = @. TD.air_temperature(thermo_params, ᶜts)
-    ᶜθ = @. TD.dry_pottemp(thermo_params, ᶜts)
+    ATMOS.thermo_state!(Y, p, ᶜinterp; time = t)
+    @. ᶜp = THERM.air_pressure(thermo_params, ᶜts)
+    ᶜT = @. THERM.air_temperature(thermo_params, ᶜts)
+    ᶜθ = @. THERM.dry_pottemp(thermo_params, ᶜts)
 
     # vorticity
     curl_uh = @. curlₕ(Y.c.uₕ)
-    ᶜvort = Geometry.WVector.(curl_uh)
-    Spaces.weighted_dss!(ᶜvort)
+    ᶜvort = CORE_G.WVector.(curl_uh)
+    CORE_S.weighted_dss!(ᶜvort)
 
-    q_sfc = @. TD.total_specific_humidity(thermo_params, ts_sfc)
+    q_sfc = @. THERM.total_specific_humidity(thermo_params, ts_sfc)
     dry_diagnostic = (;
         pressure = ᶜp,
         temperature = ᶜT,
@@ -362,11 +365,11 @@ function save_to_disk_func(integrator)
     # cloudwater (liquid and ice), watervapor and RH for moist simulation
     if :ρq_tot in propertynames(Y.c)
 
-        ᶜq = @. TD.PhasePartition(thermo_params, ᶜts)
+        ᶜq = @. THERM.PhasePartition(thermo_params, ᶜts)
         ᶜcloud_liquid = @. ᶜq.liq
         ᶜcloud_ice = @. ᶜq.ice
-        ᶜwatervapor = @. TD.vapor_specific_humidity(ᶜq)
-        ᶜRH = @. TD.relative_humidity(thermo_params, ᶜts)
+        ᶜwatervapor = @. THERM.vapor_specific_humidity(ᶜq)
+        ᶜRH = @. THERM.relative_humidity(thermo_params, ᶜts)
 
         moist_diagnostic = (;
             cloud_liquid = ᶜcloud_liquid,
@@ -375,22 +378,22 @@ function save_to_disk_func(integrator)
             relative_humidity = ᶜRH,
         )
         # precipitation
-        if p.atmos.precip_model isa Microphysics0Moment
+        if p.atmos.precip_model isa ATMOS.Microphysics0Moment
             @. ᶜS_ρq_tot =
-                Y.c.ρ * CM.Microphysics0M.remove_precipitation(
+                Y.c.ρ * CLOUD.Microphysics0M.remove_precipitation(
                     cm_params,
-                    TD.PhasePartition(thermo_params, ᶜts),
+                    THERM.PhasePartition(thermo_params, ᶜts),
                 )
 
             # rain vs snow
             @. ᶜ3d_rain = ifelse(ᶜT >= FT(273.15), ᶜS_ρq_tot, FT(0))
             @. ᶜ3d_snow = ifelse(ᶜT < FT(273.15), ᶜS_ρq_tot, FT(0))
 
-            CCO.column_integral_definite!(col_integrated_rain, ᶜ3d_rain)
-            CCO.column_integral_definite!(col_integrated_snow, ᶜ3d_snow)
+            CORE_O.column_integral_definite!(col_integrated_rain, ᶜ3d_rain)
+            CORE_O.column_integral_definite!(col_integrated_snow, ᶜ3d_snow)
 
-            @. col_integrated_rain /= CAP.ρ_cloud_liq(params)
-            @. col_integrated_snow /= CAP.ρ_cloud_liq(params)
+            @. col_integrated_rain /= ATMOS_P.ρ_cloud_liq(params)
+            @. col_integrated_snow /= ATMOS_P.ρ_cloud_liq(params)
 
 
             moist_diagnostic = (
@@ -468,16 +471,17 @@ function save_to_disk_func(integrator)
         vert_diff_diagnostic = NamedTuple()
     end
 
-    if atmos.radiation_mode isa RRTMGPI.AbstractRRTMGPMode
+    if atmos.radiation_mode isa ATMOS_RRTMGPI.AbstractRRTMGPMode
         (; face_lw_flux_dn, face_lw_flux_up, face_sw_flux_dn, face_sw_flux_up) =
             p.radiation_model
         rad_diagnostic = (;
-            lw_flux_down = RRTMGPI.array2field(FT.(face_lw_flux_dn), axes(Y.f)),
-            lw_flux_up = RRTMGPI.array2field(FT.(face_lw_flux_up), axes(Y.f)),
-            sw_flux_down = RRTMGPI.array2field(FT.(face_sw_flux_dn), axes(Y.f)),
-            sw_flux_up = RRTMGPI.array2field(FT.(face_sw_flux_up), axes(Y.f)),
+            lw_flux_down = ATMOS_RRTMGPI.array2field(FT.(face_lw_flux_dn), axes(Y.f)),
+            lw_flux_up = ATMOS_RRTMGPI.array2field(FT.(face_lw_flux_up), axes(Y.f)),
+            sw_flux_down = ATMOS_RRTMGPI.array2field(FT.(face_sw_flux_dn), axes(Y.f)),
+            sw_flux_up = ATMOS_RRTMGPI.array2field(FT.(face_sw_flux_up), axes(Y.f)),
         )
-        if atmos.radiation_mode isa RRTMGPI.AllSkyRadiationWithClearSkyDiagnostics
+        if atmos.radiation_mode isa
+           ATMOS_RRTMGPI.AllSkyRadiationWithClearSkyDiagnostics
             (;
                 face_clear_lw_flux_dn,
                 face_clear_lw_flux_up,
@@ -485,19 +489,19 @@ function save_to_disk_func(integrator)
                 face_clear_sw_flux_up,
             ) = p.radiation_model
             rad_clear_diagnostic = (;
-                clear_lw_flux_down = RRTMGPI.array2field(
+                clear_lw_flux_down = ATMOS_RRTMGPI.array2field(
                     FT.(face_clear_lw_flux_dn),
                     axes(Y.f),
                 ),
-                clear_lw_flux_up = RRTMGPI.array2field(
+                clear_lw_flux_up = ATMOS_RRTMGPI.array2field(
                     FT.(face_clear_lw_flux_up),
                     axes(Y.f),
                 ),
-                clear_sw_flux_down = RRTMGPI.array2field(
+                clear_sw_flux_down = ATMOS_RRTMGPI.array2field(
                     FT.(face_clear_sw_flux_dn),
                     axes(Y.f),
                 ),
-                clear_sw_flux_up = RRTMGPI.array2field(
+                clear_sw_flux_up = ATMOS_RRTMGPI.array2field(
                     FT.(face_clear_sw_flux_up),
                     axes(Y.f),
                 ),
@@ -505,11 +509,11 @@ function save_to_disk_func(integrator)
         else
             rad_clear_diagnostic = NamedTuple()
         end
-    elseif atmos.radiation_mode isa RadiationDYCOMS_RF01
+    elseif atmos.radiation_mode isa ATMOS.RadiationDYCOMS_RF01
         # TODO: add radiation diagnostics
         rad_diagnostic = NamedTuple()
         rad_clear_diagnostic = NamedTuple()
-    elseif atmos.radiation_mode isa RadiationTRMM_LBA
+    elseif atmos.radiation_mode isa ATMOS.RadiationTRMM_LBA
         # TODO: add radiation diagnostics
         rad_diagnostic = NamedTuple()
         rad_clear_diagnostic = NamedTuple()
@@ -531,19 +535,19 @@ function save_to_disk_func(integrator)
     sec = floor(Int, t % (60 * 60 * 24))
     @info "Saving diagnostics to HDF5 file on day $day second $sec"
     output_file = joinpath(output_dir, "day$day.$sec.hdf5")
-    hdfwriter = HDF5Writer(output_file, comms_ctx)
-    HDF5.write_attribute(hdfwriter.file, "time", t) # TODO: a better way to write metadata
-    write!(hdfwriter, Y, "Y")
-    write!(
+    hdfwriter = CORE_IO.HDF5Writer(output_file, comms_ctx)
+    CORE_IO.HDF5.write_attribute(hdfwriter.file, "time", t) # TODO: a better way to write metadata
+    CORE_IO.write!(hdfwriter, Y, "Y")
+    CORE_IO.write!(
         hdfwriter,
-        FieldVector(; pairs(diagnostic)...),
+        CORE_F.FieldVector(; pairs(diagnostic)...),
         "diagnostics",
     )
     Base.close(hdfwriter)
     return nothing
 end
 
-function save_restart_func(integrator)
+function save_restart_func(comms_ctx, integrator)
     (; t, u, p) = integrator
     (; output_dir) = p.simulation
     Y = u
@@ -552,9 +556,9 @@ function save_restart_func(integrator)
     @info "Saving restart file to HDF5 file on day $day second $sec"
     mkpath(joinpath(output_dir, "restart"))
     output_file = joinpath(output_dir, "restart", "day$day.$sec.hdf5")
-    hdfwriter = HDF5Writer(output_file, comms_ctx)
-    HDF5.write_attribute(hdfwriter.file, "time", t) # TODO: a better way to write metadata
-    write!(hdfwriter, Y, "Y")
+    hdfwriter = CORE_IO.HDF5Writer(output_file, comms_ctx)
+    CORE_IO.HDF5.write_attribute(hdfwriter.file, "time", t) # TODO: a better way to write metadata
+    CORE_IO.write!(hdfwriter, Y, "Y")
     Base.close(hdfwriter)
     return nothing
 end
@@ -579,4 +583,3 @@ function gc_func(integrator)
         "# full_sweep" = num_post.full_sweep,
     )
 end
-=#

@@ -52,14 +52,14 @@ function default_cache(Y, parsed_args, params, atmos, spaces, numerics, simulati
     (; energy_upwinding, tracer_upwinding, apply_limiter) = numerics
     ᶜcoord = CORE_F.local_geometry_field(Y.c).coordinates
     ᶠcoord = CORE_F.local_geometry_field(Y.f).coordinates
-    ᶜΦ = ATOMS.Parameters.grav(params) .* ᶜcoord.z
+    ᶜΦ = ATMOS.Parameters.grav(params) .* ᶜcoord.z
     z_sfc = CORE_F.level(ᶠcoord.z, CORE_U.half)
     if eltype(ᶜcoord) <: CORE_G.LatLongZPoint
-        Ω = ATOMS_P.Omega(params)
+        Ω = ATMOS_P.Omega(params)
         ᶜf = @. 2 * Ω * sind(ᶜcoord.lat)
         lat_sfc = CORE_F.level(ᶜcoord.lat, 1)
     else
-        f = ATOMS_P.f_plane_coriolis_frequency(params)
+        f = ATMOS_P.f_plane_coriolis_frequency(params)
         ᶜf = map(_ -> f, ᶜcoord)
         lat_sfc = map(_ -> FT(0), CORE_F.level(ᶜcoord, 1))
     end
@@ -69,7 +69,7 @@ function default_cache(Y, parsed_args, params, atmos, spaces, numerics, simulati
     sfc_conditions =
         similar(CORE_F.level(Y.f, CORE_U.half), SFLUX.SurfaceFluxConditions{FT})
 
-    ts_type = ATOMS.thermo_state_type(atmos.moisture_model, FT)
+    ts_type = ATMOS.thermo_state_type(atmos.moisture_model, FT)
     ghost_buffer = (
         c = CORE_S.create_ghost_buffer(Y.c),
         f = CORE_S.create_ghost_buffer(Y.f),
@@ -82,7 +82,7 @@ function default_cache(Y, parsed_args, params, atmos, spaces, numerics, simulati
             (ghost_buffer..., ᶜχρq_tot = CORE_S.create_ghost_buffer(Y.c.ρ))
     )
     if apply_limiter
-        tracers = filter(ATOMS.is_tracer_var, propertynames(Y.c))
+        tracers = filter(ATMOS.is_tracer_var, propertynames(Y.c))
         make_limiter = ᶜρc_name -> CORE_L.QuasiMonotoneLimiter(getproperty(Y.c, ᶜρc_name))
         limiters = NamedTuple{tracers}(map(make_limiter, tracers))
     else
@@ -168,16 +168,16 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
     turbconv = parsed_args["turbconv"];
     case_name = parsed_args["turbconv_case"];
 
-    diffuse_momentum = vert_diff && !(atmos.forcing_type isa ATOMS.HeldSuarezForcing) && !isnothing(atmos.surface_scheme)
+    diffuse_momentum = vert_diff && !(atmos.forcing_type isa ATMOS.HeldSuarezForcing) && !isnothing(atmos.surface_scheme)
     namelist = turbconv == "edmf" ? default_namelist(case_name) : nothing;
 
     (; precip_model, forcing_type, radiation_mode, turbconv_model) = atmos
 
-    thermo_dispatcher = ATOMS.ThermoDispatcher(atmos)
+    thermo_dispatcher = ATMOS.ThermoDispatcher(atmos)
     compressibility_model = atmos.compressibility_model
 
-    radiation_cache = if radiation_mode isa ATOMS_RRTMGPI.AbstractRRTMGPMode
-        ATOMS.radiation_model_cache(
+    radiation_cache = if radiation_mode isa ATMOS_RRTMGPI.AbstractRRTMGPMode
+        ATMOS.radiation_model_cache(
             Y,
             params,
             radiation_mode;
@@ -188,11 +188,11 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
             ᶜinterp,
         )
     else
-        ATOMS.radiation_model_cache(Y, params, radiation_mode)
+        ATMOS.radiation_model_cache(Y, params, radiation_mode)
     end
 
     return merge(
-        ATOMS.hyperdiffusion_cache(
+        ATMOS.hyperdiffusion_cache(
             Y,
             FT;
             κ₄ = FT(κ₄),
@@ -200,7 +200,7 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
             disable_qt_hyperdiffusion,
         ),
         rayleigh_sponge ?
-        ATOMS.rayleigh_sponge_cache(
+        ATMOS.rayleigh_sponge_cache(
             Y,
             dt;
             zd_rayleigh = FT(zd_rayleigh),
@@ -208,19 +208,19 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
             α_rayleigh_w = FT(α_rayleigh_w),
         ) : NamedTuple(),
         viscous_sponge ?
-        ATOMS.viscous_sponge_cache(
+        ATMOS.viscous_sponge_cache(
             Y;
             zd_viscous = FT(zd_viscous),
             κ₂ = FT(κ₂_sponge),
         ) : NamedTuple(),
-        ATOMS.precipitation_cache(Y, precip_model),
-        ATOMS.subsidence_cache(Y, atmos.subsidence),
-        ATOMS.large_scale_advection_cache(Y, atmos.ls_adv),
-        ATOMS.edmf_coriolis_cache(Y, atmos.edmf_coriolis),
-        ATOMS.forcing_cache(Y, forcing_type),
+        ATMOS.precipitation_cache(Y, precip_model),
+        ATMOS.subsidence_cache(Y, atmos.subsidence),
+        ATMOS.large_scale_advection_cache(Y, atmos.ls_adv),
+        ATMOS.edmf_coriolis_cache(Y, atmos.edmf_coriolis),
+        ATMOS.forcing_cache(Y, forcing_type),
         radiation_cache,
         vert_diff ?
-        ATOMS.vertical_diffusion_boundary_layer_cache(
+        ATMOS.vertical_diffusion_boundary_layer_cache(
             Y,
             atmos,
             FT;
@@ -228,7 +228,7 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
             diffuse_momentum,
         ) : NamedTuple(),
         atmos.non_orographic_gravity_wave ?
-        ATOMS.gravity_wave_cache(atmos.model_config, Y, FT) : NamedTuple(),
+        ATMOS.gravity_wave_cache(atmos.model_config, Y, FT) : NamedTuple(),
         (;
             tendency_knobs = (;
                 vert_diff,
@@ -260,21 +260,21 @@ end
 
 turbconv_cache(Y, turbconv_model::Nothing, atmos, namelist, param_set, parsed_args,) = (; turbconv_model)
 
-function turbconv_cache(Y, turbconv_model::ATOMS_TC.EDMFModel, atmos, namelist, param_set, parsed_args)
-    tc_params = ATOMS_P.turbconv_params(param_set)
+function turbconv_cache(Y, turbconv_model::ATMOS_TC.EDMFModel, atmos, namelist, param_set, parsed_args)
+    tc_params = ATMOS_P.turbconv_params(param_set)
     FT = CORE_S.undertype(axes(Y.c))
     imex_edmf_turbconv = parsed_args["imex_edmf_turbconv"]
     imex_edmf_gm = parsed_args["imex_edmf_gm"]
     test_consistency = parsed_args["test_edmf_consistency"]
     case = get_case(namelist["meta"]["casename"])
-    thermo_params = ATOMS_P.thermodynamics_params(param_set)
+    thermo_params = ATMOS_P.thermodynamics_params(param_set)
     surf_ref_thermo_state = surface_reference_thermo_state(case, thermo_params)
     surf_params = surface_params(case, surf_ref_thermo_state, thermo_params)
     edmf = turbconv_model
-    anelastic_column_kwargs = if true # ATOMS.is_anelastic_column(atmos) # TODO: make conditional
+    anelastic_column_kwargs = if true # ATMOS.is_anelastic_column(atmos) # TODO: make conditional
         ᶠspace_1 = axes(Y.f[CORE_F.ColumnIndex((1, 1), 1)])
         ᶜspace_1 = axes(Y.c[CORE_F.ColumnIndex((1, 1), 1)])
-        logpressure_fun = ATOMS.log_pressure_profile(
+        logpressure_fun = ATMOS.log_pressure_profile(
             ᶠspace_1,
             thermo_params,
             surf_ref_thermo_state,
@@ -306,8 +306,8 @@ end
 function get_aux(atmos, edmf, Y, ::Type{FT}) where {FT}
     fspace = axes(Y.f)
     cspace = axes(Y.c)
-    aux_cent_fields = ATOMS_TC.FieldFromNamedTuple(cspace, cent_aux_vars, FT, atmos, edmf)
-    aux_face_fields = ATOMS_TC.FieldFromNamedTuple(fspace, face_aux_vars, FT, atmos, edmf)
+    aux_cent_fields = ATMOS_TC.FieldFromNamedTuple(cspace, cent_aux_vars, FT, atmos, edmf)
+    aux_face_fields = ATMOS_TC.FieldFromNamedTuple(fspace, face_aux_vars, FT, atmos, edmf)
     aux = CORE_F.FieldVector(cent = aux_cent_fields, face = aux_face_fields)
     return aux
 end
@@ -332,7 +332,7 @@ cent_aux_vars_gm(FT, local_geometry, edmf) = (;
 )
 cent_aux_vars(FT, local_geometry, atmos, edmf) = (;
     cent_aux_vars_gm(FT, local_geometry, edmf)...,
-    ATOMS_TC.cent_aux_vars_edmf(FT, local_geometry, atmos)...,
+    ATMOS_TC.cent_aux_vars_edmf(FT, local_geometry, atmos)...,
 )
 
 # Face only
@@ -344,5 +344,5 @@ face_aux_vars_gm(FT, local_geometry, atmos, edmf) = (;
 )
 face_aux_vars(FT, local_geometry, atmos, edmf) = (;
     face_aux_vars_gm(FT, local_geometry, atmos, edmf)...,
-    ATOMS_TC.face_aux_vars_edmf(FT, local_geometry, edmf)...,
+    ATMOS_TC.face_aux_vars_edmf(FT, local_geometry, edmf)...,
 )

@@ -113,8 +113,8 @@ function surface_reference_thermo_state(::Soares, thermo_params)
 end
 
 
-function initialize_profiles(::Soares, grid::ATOMS_TC.Grid, thermo_params, state; kwargs...)
-    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
+function initialize_profiles(::Soares, grid::ATMOS_TC.Grid, thermo_params, state; kwargs...)
+    aux_gm = ATMOS_TC.center_aux_grid_mean(state)
 
     FT = PARAM.float_type(state)
 
@@ -126,17 +126,17 @@ function initialize_profiles(::Soares, grid::ATOMS_TC.Grid, thermo_params, state
 
     # Solve the initial value problem for pressure
     p_0::FT = FT(1000 * 100) # TODO - duplicated from surface_reference_thermo_state
-    z_0::FT = grid.zf[ATOMS_TC.kf_surface(grid)].z
-    z_max::FT = grid.zf[ATOMS_TC.kf_top_of_atmos(grid)].z
+    z_0::FT = grid.zf[ATMOS_TC.kf_surface(grid)].z
+    z_max::FT = grid.zf[ATMOS_TC.kf_top_of_atmos(grid)].z
     prof_thermo_var = prof_θ_liq_ice
     thermo_flag = "θ_liq_ice"
     params = (; thermo_params, prof_thermo_var, prof_q_tot, thermo_flag)
     prof_p = p_ivp(FT, params, p_0, z_0, z_max)
-    p_c = ATOMS_TC.center_aux_grid_mean_p(state)
+    p_c = ATMOS_TC.center_aux_grid_mean_p(state)
 
     # Fill in the grid mean state
-    prog_gm_uₕ = ATOMS_TC.grid_mean_uₕ(state)
-    ATOMS_TC.set_z!(prog_gm_uₕ, prof_u, x -> FT(0))
+    prog_gm_uₕ = ATMOS_TC.grid_mean_uₕ(state)
+    ATMOS_TC.set_z!(prog_gm_uₕ, prof_u, x -> FT(0))
     z = CORE_F.coordinate_field(axes(p_c)).z
     @. aux_gm.q_tot = prof_q_tot(z)
     @. aux_gm.θ_liq_ice = prof_θ_liq_ice(z)
@@ -156,7 +156,7 @@ function surface_params(case::Soares, surf_ref_thermo_state, thermo_params)
     ts = THERM.PhaseEquil_pTq(thermo_params, p_f_surf, Tsurface, qsurface)
     lhf = qt_flux * ρ_f_surf * THERM.latent_heat_vapor(thermo_params, ts)
     shf = θ_flux * THERM.cp_m(thermo_params, ts) * ρ_f_surf
-    return ATOMS_TC.FixedSurfaceFlux(zrough, ts, shf, lhf)
+    return ATMOS_TC.FixedSurfaceFlux(zrough, ts, shf, lhf)
 end
 
 #####
@@ -172,12 +172,12 @@ function surface_reference_thermo_state(::Nieuwstadt, thermo_params)
 end
 function initialize_profiles(
     ::Nieuwstadt,
-    grid::ATOMS_TC.Grid,
+    grid::ATMOS_TC.Grid,
     thermo_params,
     state;
     kwargs...,
 )
-    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
+    aux_gm = ATMOS_TC.center_aux_grid_mean(state)
 
     FT = PARAM.float_type(state)
 
@@ -189,17 +189,17 @@ function initialize_profiles(
 
     # Solve the initial value problem for pressure
     p_0::FT = FT(1000 * 100) # TODO - duplicated from surface_reference_thermo_state
-    z_0::FT = grid.zf[ATOMS_TC.kf_surface(grid)].z
-    z_max::FT = grid.zf[ATOMS_TC.kf_top_of_atmos(grid)].z
+    z_0::FT = grid.zf[ATMOS_TC.kf_surface(grid)].z
+    z_max::FT = grid.zf[ATMOS_TC.kf_top_of_atmos(grid)].z
     prof_thermo_var = prof_θ_liq_ice
     thermo_flag = "θ_liq_ice"
     params = (; thermo_params, prof_thermo_var, prof_q_tot, thermo_flag)
     prof_p = p_ivp(FT, params, p_0, z_0, z_max)
-    p_c = ATOMS_TC.center_aux_grid_mean_p(state)
+    p_c = ATMOS_TC.center_aux_grid_mean_p(state)
 
     # Fill in the grid mean state
-    prog_gm_uₕ = ATOMS_TC.grid_mean_uₕ(state)
-    ATOMS_TC.set_z!(prog_gm_uₕ, prof_u, x -> FT(0))
+    prog_gm_uₕ = ATMOS_TC.grid_mean_uₕ(state)
+    ATMOS_TC.set_z!(prog_gm_uₕ, prof_u, x -> FT(0))
     z = CORE_F.coordinate_field(axes(p_c)).z
     @. aux_gm.θ_liq_ice = prof_θ_liq_ice(z)
     @. aux_gm.tke = prof_tke(z)
@@ -217,7 +217,7 @@ function surface_params(case::Nieuwstadt, surf_ref_thermo_state, thermo_params)
     lhf::FT = 0.0 # It would be 0.0 if we follow Nieuwstadt.
     ts = THERM.PhaseEquil_pTq(thermo_params, p_f_surf, Tsurface, qsurface)
     shf = θ_flux * THERM.cp_m(thermo_params, ts) * ρ_f_surf
-    return ATOMS_TC.FixedSurfaceFlux(zrough, ts, shf, lhf)
+    return ATMOS_TC.FixedSurfaceFlux(zrough, ts, shf, lhf)
 end
 
 #####
@@ -234,12 +234,12 @@ end
 
 function initialize_profiles(
     ::Bomex,
-    grid::ATOMS_TC.Grid,
+    grid::ATMOS_TC.Grid,
     thermo_params,
     state;
     kwargs...,
 )
-    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
+    aux_gm = ATMOS_TC.center_aux_grid_mean(state)
 
     FT = PARAM.float_type(state)
 
@@ -251,17 +251,17 @@ function initialize_profiles(
 
     # Solve the initial value problem
     p_0::FT = FT(1.015e5) # TODO - duplicated from surface_reference_thermo_state
-    z_0::FT = grid.zf[ATOMS_TC.kf_surface(grid)].z
-    z_max::FT = grid.zf[ATOMS_TC.kf_top_of_atmos(grid)].z
+    z_0::FT = grid.zf[ATMOS_TC.kf_surface(grid)].z
+    z_max::FT = grid.zf[ATMOS_TC.kf_top_of_atmos(grid)].z
     prof_thermo_var = prof_θ_liq_ice
     thermo_flag = "θ_liq_ice"
     params = (; thermo_params, prof_thermo_var, prof_q_tot, thermo_flag)
     prof_p = p_ivp(FT, params, p_0, z_0, z_max)
-    p_c = ATOMS_TC.center_aux_grid_mean_p(state)
+    p_c = ATMOS_TC.center_aux_grid_mean_p(state)
 
     # Fill in the grid mean values
-    prog_gm_uₕ = ATOMS_TC.grid_mean_uₕ(state)
-    ATOMS_TC.set_z!(prog_gm_uₕ, prof_u, x -> FT(0))
+    prog_gm_uₕ = ATMOS_TC.grid_mean_uₕ(state)
+    ATMOS_TC.set_z!(prog_gm_uₕ, prof_u, x -> FT(0))
     z = CORE_F.coordinate_field(axes(p_c)).z
     @. aux_gm.θ_liq_ice = prof_θ_liq_ice(z)
     @. aux_gm.q_tot = prof_q_tot(z)
@@ -283,7 +283,7 @@ function surface_params(case::Bomex, surf_ref_thermo_state, thermo_params)
     lhf = qt_flux * ρ_f_surf * THERM.latent_heat_vapor(thermo_params, ts)
     shf = θ_flux * THERM.cp_m(thermo_params, ts) * ρ_f_surf
     ustar::FT = 0.28 # m/s
-    return ATOMS_TC.FixedSurfaceFluxAndFrictionVelocity(zrough, ts, shf, lhf, ustar)
+    return ATMOS_TC.FixedSurfaceFluxAndFrictionVelocity(zrough, ts, shf, lhf, ustar)
 end
 
 #####
@@ -299,12 +299,12 @@ function surface_reference_thermo_state(::LifeCycleTan2018, thermo_params)
 end
 function initialize_profiles(
     ::LifeCycleTan2018,
-    grid::ATOMS_TC.Grid,
+    grid::ATMOS_TC.Grid,
     thermo_params,
     state;
     kwargs...,
 )
-    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
+    aux_gm = ATMOS_TC.center_aux_grid_mean(state)
 
     FT = PARAM.float_type(state)
 
@@ -316,17 +316,17 @@ function initialize_profiles(
 
     # Solve the initial value problem for pressure
     p_0::FT = FT(1.015e5)    # TODO - duplicated from surface_reference_thermo_state
-    z_0::FT = grid.zf[ATOMS_TC.kf_surface(grid)].z
-    z_max::FT = grid.zf[ATOMS_TC.kf_top_of_atmos(grid)].z
+    z_0::FT = grid.zf[ATMOS_TC.kf_surface(grid)].z
+    z_max::FT = grid.zf[ATMOS_TC.kf_top_of_atmos(grid)].z
     prof_thermo_var = prof_θ_liq_ice
     thermo_flag = "θ_liq_ice"
     params = (; thermo_params, prof_thermo_var, prof_q_tot, thermo_flag)
     prof_p = p_ivp(FT, params, p_0, z_0, z_max)
-    p_c = ATOMS_TC.center_aux_grid_mean_p(state)
+    p_c = ATMOS_TC.center_aux_grid_mean_p(state)
 
     # Fill in the grid mean values
-    prog_gm_uₕ = ATOMS_TC.grid_mean_uₕ(state)
-    ATOMS_TC.set_z!(prog_gm_uₕ, prof_u, x -> FT(0))
+    prog_gm_uₕ = ATMOS_TC.grid_mean_uₕ(state)
+    ATMOS_TC.set_z!(prog_gm_uₕ, prof_u, x -> FT(0))
     z = CORE_F.coordinate_field(axes(p_c)).z
     @. aux_gm.θ_liq_ice = prof_θ_liq_ice(z)
     @. aux_gm.q_tot = prof_q_tot(z)
@@ -357,7 +357,7 @@ function surface_params(
     shf = t -> shf0 * (weight * weight_factor(t))
 
     ustar::FT = 0.28 # m/s
-    return ATOMS_TC.FixedSurfaceFluxAndFrictionVelocity(zrough, ts, shf, lhf, ustar)
+    return ATMOS_TC.FixedSurfaceFluxAndFrictionVelocity(zrough, ts, shf, lhf, ustar)
 end
 
 #####
@@ -376,13 +376,13 @@ end
 
 function initialize_profiles(
     ::Rico,
-    grid::ATOMS_TC.Grid,
+    grid::ATMOS_TC.Grid,
     thermo_params,
     state;
     kwargs...,
 )
-    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
-    p_c = ATOMS_TC.center_aux_grid_mean_p(state)
+    aux_gm = ATMOS_TC.center_aux_grid_mean(state)
+    p_c = ATMOS_TC.center_aux_grid_mean_p(state)
 
     FT = PARAM.float_type(state)
 
@@ -394,16 +394,16 @@ function initialize_profiles(
 
     # Solve the initial value problem for pressure
     p_0::FT = FT(1.015e5)    # TODO - duplicated from surface_reference_thermo_state
-    z_0::FT = grid.zf[ATOMS_TC.kf_surface(grid)].z
-    z_max::FT = grid.zf[ATOMS_TC.kf_top_of_atmos(grid)].z
+    z_0::FT = grid.zf[ATMOS_TC.kf_surface(grid)].z
+    z_max::FT = grid.zf[ATMOS_TC.kf_top_of_atmos(grid)].z
     prof_thermo_var = prof_θ_liq_ice
     thermo_flag = "θ_liq_ice"
     params = (; thermo_params, prof_thermo_var, prof_q_tot, thermo_flag)
     prof_p = p_ivp(FT, params, p_0, z_0, z_max)
 
     # Fill in the grid mean values
-    prog_gm_uₕ = ATOMS_TC.grid_mean_uₕ(state)
-    ATOMS_TC.set_z!(prog_gm_uₕ, prof_u, prof_v)
+    prog_gm_uₕ = ATMOS_TC.grid_mean_uₕ(state)
+    ATMOS_TC.set_z!(prog_gm_uₕ, prof_u, prof_v)
     z = CORE_F.coordinate_field(axes(p_c)).z
     @. aux_gm.θ_liq_ice = prof_θ_liq_ice(z)
     @. aux_gm.q_tot = prof_q_tot(z)
@@ -417,7 +417,7 @@ function initialize_profiles(
         thermo_params,
         THERM.PhaseEquil_pθq(thermo_params, p_c, aux_gm.θ_liq_ice, aux_gm.q_tot),
     )
-    zi = FT(0.6) * ATOMS_TC.get_inversion(grid, state, thermo_params, FT(0.2))
+    zi = FT(0.6) * ATMOS_TC.get_inversion(grid, state, thermo_params, FT(0.2))
 
     prof_tke = z -> if z <= zi
         1 - z / zi
@@ -452,7 +452,7 @@ function surface_params(
     qsurface = THERM.q_vap_saturation(thermo_params, ts)
     # TODO: thermo state should be constructed once
     ts = THERM.PhaseEquil_pTq(thermo_params, p_f_surf, Tsurface, qsurface)
-    return ATOMS_TC.FixedSurfaceCoeffs(; zrough, ts, ch, cm)
+    return ATMOS_TC.FixedSurfaceCoeffs(; zrough, ts, ch, cm)
 end
 
 #####
@@ -490,13 +490,13 @@ function TRMM_q_tot_profile(::Type{FT}, thermo_params) where {FT}
 end
 function initialize_profiles(
     ::TRMM_LBA,
-    grid::ATOMS_TC.Grid,
+    grid::ATMOS_TC.Grid,
     thermo_params,
     state;
     kwargs...,
 )
-    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
-    p_c = ATOMS_TC.center_aux_grid_mean_p(state)
+    aux_gm = ATMOS_TC.center_aux_grid_mean(state)
+    p_c = ATMOS_TC.center_aux_grid_mean_p(state)
 
     FT = PARAM.float_type(state)
 
@@ -509,16 +509,16 @@ function initialize_profiles(
 
     # Solve the initial value problem for pressure
     p_0::FT = FT(991.3 * 100)    # TODO - duplicated from surface_reference_thermo_state
-    z_0::FT = grid.zf[ATOMS_TC.kf_surface(grid)].z
-    z_max::FT = grid.zf[ATOMS_TC.kf_top_of_atmos(grid)].z
+    z_0::FT = grid.zf[ATMOS_TC.kf_surface(grid)].z
+    z_max::FT = grid.zf[ATMOS_TC.kf_top_of_atmos(grid)].z
     prof_thermo_var = prof_T
     thermo_flag = "temperature"
     params = (; thermo_params, prof_thermo_var, prof_q_tot, thermo_flag)
     prof_p = p_ivp(FT, params, p_0, z_0, z_max)
 
     # Fill in the grid mean values
-    prog_gm_uₕ = ATOMS_TC.grid_mean_uₕ(state)
-    ATOMS_TC.set_z!(prog_gm_uₕ, prof_u, prof_v)
+    prog_gm_uₕ = ATMOS_TC.grid_mean_uₕ(state)
+    ATMOS_TC.set_z!(prog_gm_uₕ, prof_u, prof_v)
     z = CORE_F.coordinate_field(axes(p_c)).z
     @. p_c = prof_p(z)
     @. aux_gm.q_tot = prof_q_tot(z)
@@ -555,7 +555,7 @@ function surface_params(case::TRMM_LBA, surf_ref_thermo_state, thermo_params)
                 0,
                 cos(FT(π) / 2 * ((FT(5.25) * 3600 - t) / FT(5.25) / 3600)),
             )^FT(1.5)
-    return ATOMS_TC.FixedSurfaceFluxAndFrictionVelocity(zrough, ts, shf, lhf, ustar)
+    return ATMOS_TC.FixedSurfaceFluxAndFrictionVelocity(zrough, ts, shf, lhf, ustar)
 end
 
 
@@ -573,12 +573,12 @@ end
 
 function initialize_profiles(
     ::ARM_SGP,
-    grid::ATOMS_TC.Grid,
+    grid::ATMOS_TC.Grid,
     thermo_params,
     state;
     kwargs...,
 )
-    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
+    aux_gm = ATMOS_TC.center_aux_grid_mean(state)
 
     FT = PARAM.float_type(state)
 
@@ -590,17 +590,17 @@ function initialize_profiles(
 
     # Solve the initial value problem for pressure
     p_0::FT = FT(970 * 100)    # TODO - duplicated from surface_reference_thermo_state
-    z_0::FT = grid.zf[ATOMS_TC.kf_surface(grid)].z
-    z_max::FT = grid.zf[ATOMS_TC.kf_top_of_atmos(grid)].z
+    z_0::FT = grid.zf[ATMOS_TC.kf_surface(grid)].z
+    z_max::FT = grid.zf[ATMOS_TC.kf_top_of_atmos(grid)].z
     prof_thermo_var = prof_θ_liq_ice
     thermo_flag = "θ_liq_ice"
     params = (; thermo_params, prof_thermo_var, prof_q_tot, thermo_flag)
     prof_p = p_ivp(FT, params, p_0, z_0, z_max)
 
     # Fill in the grid mean values
-    prog_gm_uₕ = ATOMS_TC.grid_mean_uₕ(state)
-    p_c = ATOMS_TC.center_aux_grid_mean_p(state)
-    ATOMS_TC.set_z!(prog_gm_uₕ, prof_u, x -> FT(0))
+    prog_gm_uₕ = ATMOS_TC.grid_mean_uₕ(state)
+    p_c = ATMOS_TC.center_aux_grid_mean_p(state)
+    ATMOS_TC.set_z!(prog_gm_uₕ, prof_u, x -> FT(0))
     z = CORE_F.coordinate_field(axes(prog_gm_uₕ)).z
     # TODO figure out how to use ts here
     @. p_c = prof_p(z)
@@ -637,7 +637,7 @@ function surface_params(case::ARM_SGP, surf_ref_thermo_state, thermo_params)
     lhf = Spline1D(t_Sur_in, LH; k = 1)
     zrough::FT = 0
 
-    return ATOMS_TC.FixedSurfaceFluxAndFrictionVelocity(zrough, ts, shf, lhf, ustar)
+    return ATMOS_TC.FixedSurfaceFluxAndFrictionVelocity(zrough, ts, shf, lhf, ustar)
 end
 
 #####
@@ -654,13 +654,13 @@ end
 
 function initialize_profiles(
     ::GATE_III,
-    grid::ATOMS_TC.Grid,
+    grid::ATMOS_TC.Grid,
     thermo_params,
     state;
     kwargs...,
 )
-    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
-    p_c = ATOMS_TC.center_aux_grid_mean_p(state)
+    aux_gm = ATMOS_TC.center_aux_grid_mean(state)
+    p_c = ATMOS_TC.center_aux_grid_mean_p(state)
 
     FT = PARAM.float_type(state)
 
@@ -672,17 +672,17 @@ function initialize_profiles(
 
     # Solve the initial value problem for pressure
     p_0::FT = FT(1013 * 100)    # TODO - duplicated from surface_reference_thermo_state
-    z_0::FT = grid.zf[ATOMS_TC.kf_surface(grid)].z
-    z_max::FT = grid.zf[ATOMS_TC.kf_top_of_atmos(grid)].z
+    z_0::FT = grid.zf[ATMOS_TC.kf_surface(grid)].z
+    z_max::FT = grid.zf[ATMOS_TC.kf_top_of_atmos(grid)].z
     prof_thermo_var = prof_T
     thermo_flag = "temperature"
     params = (; thermo_params, prof_thermo_var, prof_q_tot, thermo_flag)
     prof_p = p_ivp(FT, params, p_0, z_0, z_max)
 
     # Fill in the grid mean values
-    prog_gm_uₕ = ATOMS_TC.grid_mean_uₕ(state)
-    ATOMS_TC.set_z!(prog_gm_uₕ, prof_u, x -> FT(0)) # TODO: double check with CliMA Atmos folks to make sure this is the case
-    @inbounds for k in ATOMS_TC.real_center_indices(grid)
+    prog_gm_uₕ = ATMOS_TC.grid_mean_uₕ(state)
+    ATMOS_TC.set_z!(prog_gm_uₕ, prof_u, x -> FT(0)) # TODO: double check with CliMA Atmos folks to make sure this is the case
+    @inbounds for k in ATMOS_TC.real_center_indices(grid)
         z = grid.zc[k].z
         aux_gm.q_tot[k] = prof_q_tot(z)
         aux_gm.T[k] = prof_T(z)
@@ -716,7 +716,7 @@ function surface_params(
 
     # For GATE_III we provide values of transfer coefficients
     ts = THERM.PhaseEquil_pθq(thermo_params, p_f_surf, Tsurface, qsurface)
-    return ATOMS_TC.FixedSurfaceCoeffs(; zrough = FT(0), ts, ch, cm)
+    return ATMOS_TC.FixedSurfaceCoeffs(; zrough = FT(0), ts, ch, cm)
 end
 
 #####
@@ -735,13 +735,13 @@ end
 
 function initialize_profiles(
     ::DYCOMS_RF01,
-    grid::ATOMS_TC.Grid,
+    grid::ATMOS_TC.Grid,
     thermo_params,
     state;
     kwargs...,
 )
-    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
-    p_c = ATOMS_TC.center_aux_grid_mean_p(state)
+    aux_gm = ATMOS_TC.center_aux_grid_mean(state)
+    p_c = ATMOS_TC.center_aux_grid_mean_p(state)
 
     FT = PARAM.float_type(state)
 
@@ -753,17 +753,17 @@ function initialize_profiles(
 
     # Solve the initial value problem for pressure
     p_0::FT = FT(1017.8 * 100)  # TODO - duplicated from surface_reference_thermo_state
-    z_0::FT = grid.zf[ATOMS_TC.kf_surface(grid)].z
-    z_max::FT = grid.zf[ATOMS_TC.kf_top_of_atmos(grid)].z
+    z_0::FT = grid.zf[ATMOS_TC.kf_surface(grid)].z
+    z_max::FT = grid.zf[ATMOS_TC.kf_top_of_atmos(grid)].z
     prof_thermo_var = prof_θ_liq_ice
     thermo_flag = "θ_liq_ice"
     params = (; thermo_params, prof_thermo_var, prof_q_tot, thermo_flag)
     prof_p = p_ivp(FT, params, p_0, z_0, z_max)
 
     # Fill in the grid mean values
-    prog_gm_uₕ = ATOMS_TC.grid_mean_uₕ(state)
-    ATOMS_TC.set_z!(prog_gm_uₕ, prof_u, prof_v)
-    @inbounds for k in ATOMS_TC.real_center_indices(grid)
+    prog_gm_uₕ = ATMOS_TC.grid_mean_uₕ(state)
+    ATMOS_TC.set_z!(prog_gm_uₕ, prof_u, prof_v)
+    @inbounds for k in ATMOS_TC.real_center_indices(grid)
         # thetal profile as defined in DYCOMS
         z = grid.zc[k].z
         aux_gm.q_tot[k] = prof_q_tot(z)
@@ -787,7 +787,7 @@ function surface_params(case::DYCOMS_RF01, surf_ref_thermo_state, thermo_params)
     #density_surface  = 1.22     # kg/m^3
 
     ts = THERM.PhaseEquil_pTq(thermo_params, p_f_surf, Tsurface, qsurface)
-    return ATOMS_TC.FixedSurfaceFlux(zrough, ts, shf, lhf)
+    return ATMOS_TC.FixedSurfaceFlux(zrough, ts, shf, lhf)
 end
 
 #####
@@ -806,13 +806,13 @@ end
 
 function initialize_profiles(
     ::DYCOMS_RF02,
-    grid::ATOMS_TC.Grid,
+    grid::ATMOS_TC.Grid,
     thermo_params,
     state;
     kwargs...,
 )
-    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
-    p_c = ATOMS_TC.center_aux_grid_mean_p(state)
+    aux_gm = ATMOS_TC.center_aux_grid_mean(state)
+    p_c = ATMOS_TC.center_aux_grid_mean_p(state)
 
     FT = PARAM.float_type(state)
 
@@ -824,17 +824,17 @@ function initialize_profiles(
 
     # Solve the initial value problem for pressure
     p_0::FT = FT(1017.8 * 100)  # TODO - duplicated from surface_reference_thermo_state
-    z_0::FT = grid.zf[ATOMS_TC.kf_surface(grid)].z
-    z_max::FT = grid.zf[ATOMS_TC.kf_top_of_atmos(grid)].z
+    z_0::FT = grid.zf[ATMOS_TC.kf_surface(grid)].z
+    z_max::FT = grid.zf[ATMOS_TC.kf_top_of_atmos(grid)].z
     prof_thermo_var = prof_θ_liq_ice
     thermo_flag = "θ_liq_ice"
     params = (; thermo_params, prof_thermo_var, prof_q_tot, thermo_flag)
     prof_p = p_ivp(FT, params, p_0, z_0, z_max)
 
     # Fill in the grid mean values
-    prog_gm_uₕ = ATOMS_TC.grid_mean_uₕ(state)
-    ATOMS_TC.set_z!(prog_gm_uₕ, prof_u, prof_v)
-    @inbounds for k in ATOMS_TC.real_center_indices(grid)
+    prog_gm_uₕ = ATMOS_TC.grid_mean_uₕ(state)
+    ATMOS_TC.set_z!(prog_gm_uₕ, prof_u, prof_v)
+    @inbounds for k in ATMOS_TC.real_center_indices(grid)
         # θ_liq_ice profile as defined in DYCOM RF02
         z = grid.zc[k].z
         aux_gm.q_tot[k] = prof_q_tot(z)
@@ -856,7 +856,7 @@ function surface_params(case::DYCOMS_RF02, surf_ref_thermo_state, thermo_params)
     Tsurface::FT = 292.5    # K      # i.e. the SST from DYCOMS setup
     qsurface::FT = 13.84e-3 # kg/kg  # TODO - taken from Pycles, maybe it would be better to calculate the q_star(sst) for TurbulenceConvection?
     ts = THERM.PhaseEquil_pTq(thermo_params, p_f_surf, Tsurface, qsurface)
-    return ATOMS_TC.FixedSurfaceFluxAndFrictionVelocity(zrough, ts, shf, lhf, ustar)
+    return ATMOS_TC.FixedSurfaceFluxAndFrictionVelocity(zrough, ts, shf, lhf, ustar)
 end
 
 #####
@@ -872,13 +872,13 @@ function surface_reference_thermo_state(::GABLS, thermo_params)
 end
 function initialize_profiles(
     ::GABLS,
-    grid::ATOMS_TC.Grid,
+    grid::ATMOS_TC.Grid,
     thermo_params,
     state;
     kwargs...,
 )
-    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
-    p_c = ATOMS_TC.center_aux_grid_mean_p(state)
+    aux_gm = ATMOS_TC.center_aux_grid_mean(state)
+    p_c = ATMOS_TC.center_aux_grid_mean_p(state)
 
     FT = PARAM.float_type(state)
 
@@ -890,16 +890,16 @@ function initialize_profiles(
 
     # Solve the initial value problem for pressure
     p_0::FT = FT(1.0e5)         # TODO - duplicated from surface_reference_thermo_state
-    z_0::FT = grid.zf[ATOMS_TC.kf_surface(grid)].z
-    z_max::FT = grid.zf[ATOMS_TC.kf_top_of_atmos(grid)].z
+    z_0::FT = grid.zf[ATMOS_TC.kf_surface(grid)].z
+    z_max::FT = grid.zf[ATMOS_TC.kf_top_of_atmos(grid)].z
     prof_thermo_var = prof_θ_liq_ice
     thermo_flag = "θ_liq_ice"
     params = (; thermo_params, prof_thermo_var, prof_q_tot, thermo_flag)
     prof_p = p_ivp(FT, params, p_0, z_0, z_max)
 
     # Fill in the grid mean values
-    prog_gm_uₕ = ATOMS_TC.grid_mean_uₕ(state)
-    ATOMS_TC.set_z!(prog_gm_uₕ, prof_u, prof_v)
+    prog_gm_uₕ = ATMOS_TC.grid_mean_uₕ(state)
+    ATMOS_TC.set_z!(prog_gm_uₕ, prof_u, prof_v)
     prof_tke = APL.GABLS_tke(FT)
     z = CORE_F.coordinate_field(axes(p_c)).z
     #Set wind velocity profile
@@ -922,5 +922,5 @@ function surface_params(
     qsurface::FT = 0.0
     zrough::FT = 0.1
     ts = t -> THERM.PhaseEquil_pTq(thermo_params, p_f_surf, Tsurface(t), qsurface)
-    return ATOMS_TC.MoninObukhovSurface(; ts, zrough)
+    return ATMOS_TC.MoninObukhovSurface(; ts, zrough)
 end
