@@ -36,6 +36,7 @@ import SurfaceFluxes.UniversalFunctions as SFLUX_UF
 import Thermodynamics as THERM
 import Thermodynamics.Parameters as THERM_P
 
+import DiffEqBase as DEB
 import OrdinaryDiffEq as ODE
 
 using Land.ClimaCache: MonoMLTreeSPAC
@@ -51,15 +52,16 @@ using Random: seed!
 using StaticArrays: SVector
 
 
-include("initialization/atmos.jl"   )
-include("initialization/cache.jl"   )
-include("initialization/callback.jl")
-include("initialization/cases.jl"   )
-include("initialization/config.jl"  )
-include("initialization/land.jl"    )
-include("initialization/numerics.jl")
-include("initialization/setup.jl"   )
-include("initialization/surface.jl" )
+include("initialization/atmos.jl"     )
+include("initialization/cache.jl"     )
+include("initialization/callback.jl"  )
+include("initialization/cases.jl"     )
+include("initialization/config.jl"    )
+include("initialization/integrator.jl")
+include("initialization/land.jl"      )
+include("initialization/numerics.jl"  )
+include("initialization/setup.jl"     )
+include("initialization/surface.jl"   )
 
 include("clima.jl")
 
