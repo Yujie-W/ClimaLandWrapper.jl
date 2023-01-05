@@ -101,11 +101,11 @@ function additional_cache(
     FT = typeof(dt)
     (; precip_model, forcing_type, radiation_mode, turbconv_model) = atmos
 
-    thermo_dispatcher = CA.ThermoDispatcher(atmos)
+    thermo_dispatcher = ATOMS.ThermoDispatcher(atmos)
     compressibility_model = atmos.compressibility_model
 
     radiation_cache = if radiation_mode isa RRTMGPI.AbstractRRTMGPMode
-        CA.radiation_model_cache(
+        ATOMS.radiation_model_cache(
             Y,
             params,
             radiation_mode;
@@ -116,11 +116,11 @@ function additional_cache(
             ᶜinterp,
         )
     else
-        CA.radiation_model_cache(Y, params, radiation_mode)
+        ATOMS.radiation_model_cache(Y, params, radiation_mode)
     end
 
     return merge(
-        CA.hyperdiffusion_cache(
+        ATOMS.hyperdiffusion_cache(
             Y,
             FT;
             κ₄ = FT(κ₄),
@@ -128,7 +128,7 @@ function additional_cache(
             disable_qt_hyperdiffusion,
         ),
         rayleigh_sponge ?
-        CA.rayleigh_sponge_cache(
+        ATOMS.rayleigh_sponge_cache(
             Y,
             dt;
             zd_rayleigh = FT(zd_rayleigh),
@@ -136,19 +136,19 @@ function additional_cache(
             α_rayleigh_w = FT(α_rayleigh_w),
         ) : NamedTuple(),
         viscous_sponge ?
-        CA.viscous_sponge_cache(
+        ATOMS.viscous_sponge_cache(
             Y;
             zd_viscous = FT(zd_viscous),
             κ₂ = FT(κ₂_sponge),
         ) : NamedTuple(),
-        CA.precipitation_cache(Y, precip_model),
-        CA.subsidence_cache(Y, atmos.subsidence),
-        CA.large_scale_advection_cache(Y, atmos.ls_adv),
-        CA.edmf_coriolis_cache(Y, atmos.edmf_coriolis),
-        CA.forcing_cache(Y, forcing_type),
+        ATOMS.precipitation_cache(Y, precip_model),
+        ATOMS.subsidence_cache(Y, atmos.subsidence),
+        ATOMS.large_scale_advection_cache(Y, atmos.ls_adv),
+        ATOMS.edmf_coriolis_cache(Y, atmos.edmf_coriolis),
+        ATOMS.forcing_cache(Y, forcing_type),
         radiation_cache,
         vert_diff ?
-        CA.vertical_diffusion_boundary_layer_cache(
+        ATOMS.vertical_diffusion_boundary_layer_cache(
             Y,
             atmos,
             FT;
@@ -156,7 +156,7 @@ function additional_cache(
             diffuse_momentum,
         ) : NamedTuple(),
         atmos.non_orographic_gravity_wave ?
-        CA.gravity_wave_cache(atmos.model_config, Y, FT) : NamedTuple(),
+        ATOMS.gravity_wave_cache(atmos.model_config, Y, FT) : NamedTuple(),
         (;
             tendency_knobs = (;
                 vert_diff,
@@ -182,29 +182,29 @@ end
 
 function additional_tendency!(Yₜ, Y, p, t)
     (; viscous_sponge, hyperdiff) = p.tendency_knobs
-    hyperdiff && CA.hyperdiffusion_tendency!(Yₜ, Y, p, t)
-    viscous_sponge && CA.viscous_sponge_tendency!(Yₜ, Y, p, t)
+    hyperdiff && ATOMS.hyperdiffusion_tendency!(Yₜ, Y, p, t)
+    viscous_sponge && ATOMS.viscous_sponge_tendency!(Yₜ, Y, p, t)
 
     # Vertical tendencies
     Fields.bycolumn(axes(Y.c)) do colidx
         (; vert_diff) = p.tendency_knobs
         (; rayleigh_sponge) = p.tendency_knobs
-        rayleigh_sponge && CA.rayleigh_sponge_tendency!(Yₜ, Y, p, t, colidx)
-        CA.forcing_tendency!(Yₜ, Y, p, t, colidx, p.forcing_type)
-        CA.subsidence_tendency!(Yₜ, Y, p, t, colidx, p.subsidence)
-        CA.edmf_coriolis_tendency!(Yₜ, Y, p, t, colidx, p.edmf_coriolis)
-        CA.large_scale_advection_tendency!(Yₜ, Y, p, t, colidx, p.ls_adv)
+        rayleigh_sponge && ATOMS.rayleigh_sponge_tendency!(Yₜ, Y, p, t, colidx)
+        ATOMS.forcing_tendency!(Yₜ, Y, p, t, colidx, p.forcing_type)
+        ATOMS.subsidence_tendency!(Yₜ, Y, p, t, colidx, p.subsidence)
+        ATOMS.edmf_coriolis_tendency!(Yₜ, Y, p, t, colidx, p.edmf_coriolis)
+        ATOMS.large_scale_advection_tendency!(Yₜ, Y, p, t, colidx, p.ls_adv)
         if vert_diff
-            CA.get_surface_fluxes!(Y, p, t, colidx, p.atmos.coupling)
-            CA.vertical_diffusion_boundary_layer_tendency!(Yₜ, Y, p, t, colidx)
+            ATOMS.get_surface_fluxes!(Y, p, t, colidx, p.atmos.coupling)
+            ATOMS.vertical_diffusion_boundary_layer_tendency!(Yₜ, Y, p, t, colidx)
         end
-        CA.radiation_tendency!(Yₜ, Y, p, t, colidx, p.radiation_model)
+        ATOMS.radiation_tendency!(Yₜ, Y, p, t, colidx, p.radiation_model)
         TCU.explicit_sgs_flux_tendency!(Yₜ, Y, p, t, colidx, p.turbconv_model)
-        CA.precipitation_tendency!(Yₜ, Y, p, t, colidx, p.precip_model)
+        ATOMS.precipitation_tendency!(Yₜ, Y, p, t, colidx, p.precip_model)
     end
     # TODO: make bycolumn-able
     (; non_orographic_gravity_wave) = p.tendency_knobs
-    non_orographic_gravity_wave && CA.gravity_wave_tendency!(Yₜ, Y, p, t)
+    non_orographic_gravity_wave && ATOMS.gravity_wave_tendency!(Yₜ, Y, p, t)
 end
 
 ################################################################################
@@ -254,7 +254,7 @@ if parsed_args["turbconv"] == "edmf"
 end
 
 if parsed_args["discrete_hydrostatic_balance"]
-    CA.set_discrete_hydrostatic_balanced_state!(Y, p)
+    ATOMS.set_discrete_hydrostatic_balanced_state!(Y, p)
 end
 
 # Print tendencies:
@@ -384,7 +384,7 @@ if parsed_args["debugging_tc"]
             main_branch_data_path = temp_main_branch_path,
         )
     end
-    if atmos.model_config isa CA.SingleColumnModel
+    if atmos.model_config isa ATOMS.SingleColumnModel
         zip_and_cleanup_output(simulation.output_dir, zip_file)
     end
 end
@@ -419,11 +419,11 @@ if !simulation.is_distributed && parsed_args["post_process"]
         postprocessing_edmf(sol, simulation.output_dir, fps)
     elseif is_solid_body(parsed_args)
         postprocessing(sol, simulation.output_dir, fps)
-    elseif atmos.model_config isa CA.BoxModel
+    elseif atmos.model_config isa ATOMS.BoxModel
         postprocessing_box(sol, simulation.output_dir)
-    elseif atmos.model_config isa CA.SphericalModel
+    elseif atmos.model_config isa ATOMS.SphericalModel
         paperplots_held_suarez(sol, simulation.output_dir, p, 90, 180)
-    elseif atmos.forcing_type isa CA.HeldSuarezForcing
+    elseif atmos.forcing_type isa ATOMS.HeldSuarezForcing
         custom_postprocessing(sol, simulation.output_dir, p)
     else
         error("Uncaught case")

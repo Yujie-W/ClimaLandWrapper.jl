@@ -1,44 +1,44 @@
 FT = Float64;
-const divₕ = Divergence()
-const wdivₕ = WeakDivergence()
-const gradₕ = Gradient()
-const wgradₕ = WeakGradient()
-const curlₕ = Curl()
-const wcurlₕ = WeakCurl()
+const divₕ = CORE_O.Divergence()
+const wdivₕ = CORE_O.WeakDivergence()
+const gradₕ = CORE_O.Gradient()
+const wgradₕ = CORE_O.WeakGradient()
+const curlₕ = CORE_O.Curl()
+const wcurlₕ = CORE_O.WeakCurl()
 
-const ᶜinterp = InterpolateF2C()
-const ᶠinterp = InterpolateC2F(
-    bottom = Extrapolate(),
-    top = Extrapolate(),
+const ᶜinterp = CORE_O.InterpolateF2C()
+const ᶠinterp = CORE_O.InterpolateC2F(
+    bottom = CORE_O.Extrapolate(),
+    top = CORE_O.Extrapolate(),
 )
-const ᶜdivᵥ = DivergenceF2C(
-    top = SetValue(Contravariant3Vector(FT(0))),
-    bottom = SetValue(Contravariant3Vector(FT(0))),
+const ᶜdivᵥ = CORE_O.DivergenceF2C(
+    top = CORE_O.SetValue(CORE_G.Contravariant3Vector(FT(0))),
+    bottom = CORE_O.SetValue(CORE_G.Contravariant3Vector(FT(0))),
 )
-const ᶠgradᵥ = GradientC2F(
-    bottom = SetGradient(Covariant3Vector(FT(0))),
-    top = SetGradient(Covariant3Vector(FT(0))),
+const ᶠgradᵥ = CORE_O.GradientC2F(
+    bottom = CORE_O.SetGradient(CORE_G.Covariant3Vector(FT(0))),
+    top = CORE_O.SetGradient(CORE_G.Covariant3Vector(FT(0))),
 )
-const ᶜgradᵥ = GradientF2C()
-const ᶠcurlᵥ = CurlC2F(
-    bottom = SetCurl(Contravariant12Vector(FT(0), FT(0))),
-    top = SetCurl(Contravariant12Vector(FT(0), FT(0))),
+const ᶜgradᵥ = CORE_O.GradientF2C()
+const ᶠcurlᵥ = CORE_O.CurlC2F(
+    bottom = CORE_O.SetCurl(CORE_G.Contravariant12Vector(FT(0), FT(0))),
+    top = CORE_O.SetCurl(CORE_G.Contravariant12Vector(FT(0), FT(0))),
 )
-const ᶠupwind1 = UpwindBiasedProductC2F()
-const ᶠupwind3 = Upwind3rdOrderBiasedProductC2F(
-    bottom = ThirdOrderOneSided(),
-    top = ThirdOrderOneSided(),
+const ᶠupwind1 = CORE_O.UpwindBiasedProductC2F()
+const ᶠupwind3 = CORE_O.Upwind3rdOrderBiasedProductC2F(
+    bottom = CORE_O.ThirdOrderOneSided(),
+    top = CORE_O.ThirdOrderOneSided(),
 )
-const ᶠfct_boris_book = FCTBorisBook(
-    bottom = FirstOrderOneSided(),
-    top = FirstOrderOneSided(),
+const ᶠfct_boris_book = CORE_O.FCTBorisBook(
+    bottom = CORE_O.FirstOrderOneSided(),
+    top = CORE_O.FirstOrderOneSided(),
 )
-const ᶠfct_zalesak = FCTZalesak(
-    bottom = FirstOrderOneSided(),
-    top = FirstOrderOneSided(),
+const ᶠfct_zalesak = CORE_O.FCTZalesak(
+    bottom = CORE_O.FirstOrderOneSided(),
+    top = CORE_O.FirstOrderOneSided(),
 )
 
-const C123 = Covariant123Vector
+const C123 = CORE_G.Covariant123Vector
 
 
 get_cache(Y, parsed_args, params, spaces, atmos, numerics, simulation) = merge(
@@ -50,40 +50,40 @@ function default_cache(Y, parsed_args, params, atmos, spaces, numerics, simulati
     FT = eltype(params);
 
     (; energy_upwinding, tracer_upwinding, apply_limiter) = numerics
-    ᶜcoord = local_geometry_field(Y.c).coordinates
-    ᶠcoord = local_geometry_field(Y.f).coordinates
-    ᶜΦ = ClimaAtmos.Parameters.grav(params) .* ᶜcoord.z
-    z_sfc = level(ᶠcoord.z, half)
-    if eltype(ᶜcoord) <: LatLongZPoint
-        Ω = Omega(params)
+    ᶜcoord = CORE_F.local_geometry_field(Y.c).coordinates
+    ᶠcoord = CORE_F.local_geometry_field(Y.f).coordinates
+    ᶜΦ = ATOMS.Parameters.grav(params) .* ᶜcoord.z
+    z_sfc = CORE_F.level(ᶠcoord.z, CORE_U.half)
+    if eltype(ᶜcoord) <: CORE_G.LatLongZPoint
+        Ω = ATOMS_P.Omega(params)
         ᶜf = @. 2 * Ω * sind(ᶜcoord.lat)
-        lat_sfc = level(ᶜcoord.lat, 1)
+        lat_sfc = CORE_F.level(ᶜcoord.lat, 1)
     else
-        f = f_plane_coriolis_frequency(params)
+        f = ATOMS_P.f_plane_coriolis_frequency(params)
         ᶜf = map(_ -> f, ᶜcoord)
-        lat_sfc = map(_ -> FT(0), level(ᶜcoord, 1))
+        lat_sfc = map(_ -> FT(0), CORE_F.level(ᶜcoord, 1))
     end
-    ᶜf = @. Contravariant3Vector(WVector(ᶜf))
+    ᶜf = @. CORE_G.Contravariant3Vector(CORE_G.WVector(ᶜf))
     T_sfc = @. 29 * exp(-lat_sfc^2 / (2 * 26^2)) + 271
 
     sfc_conditions =
-        similar(level(Y.f, half), SurfaceFluxConditions{FT})
+        similar(CORE_F.level(Y.f, CORE_U.half), SFLUX.SurfaceFluxConditions{FT})
 
-    ts_type = thermo_state_type(atmos.moisture_model, FT)
+    ts_type = ATOMS.thermo_state_type(atmos.moisture_model, FT)
     ghost_buffer = (
-        c = create_ghost_buffer(Y.c),
-        f = create_ghost_buffer(Y.f),
-        χ = create_ghost_buffer(Y.c.ρ), # for hyperdiffusion
-        χw = create_ghost_buffer(Y.f.w.components.data.:1), # for hyperdiffusion
-        χuₕ = create_ghost_buffer(Y.c.uₕ), # for hyperdiffusion
+        c = CORE_S.create_ghost_buffer(Y.c),
+        f = CORE_S.create_ghost_buffer(Y.f),
+        χ = CORE_S.create_ghost_buffer(Y.c.ρ), # for hyperdiffusion
+        χw = CORE_S.create_ghost_buffer(Y.f.w.components.data.:1), # for hyperdiffusion
+        χuₕ = CORE_S.create_ghost_buffer(Y.c.uₕ), # for hyperdiffusion
     )
     (:ρq_tot in propertynames(Y.c)) && (
         ghost_buffer =
-            (ghost_buffer..., ᶜχρq_tot = create_ghost_buffer(Y.c.ρ))
+            (ghost_buffer..., ᶜχρq_tot = CORE_S.create_ghost_buffer(Y.c.ρ))
     )
     if apply_limiter
-        tracers = filter(is_tracer_var, propertynames(Y.c))
-        make_limiter = ᶜρc_name -> QuasiMonotoneLimiter(getproperty(Y.c, ᶜρc_name))
+        tracers = filter(ATOMS.is_tracer_var, propertynames(Y.c))
+        make_limiter = ᶜρc_name -> CORE_L.QuasiMonotoneLimiter(getproperty(Y.c, ᶜρc_name))
         limiters = NamedTuple{tracers}(map(make_limiter, tracers))
     else
         limiters = nothing
@@ -92,20 +92,20 @@ function default_cache(Y, parsed_args, params, atmos, spaces, numerics, simulati
     ᶜρh_kwargs =
         :ρe_tot in pnc || :ρe_int in pnc ? (; ᶜρh = similar(Y.c, FT)) : ()
 
-    net_energy_flux_toa = [sum(similar(Y.f, WVector{FT})) * 0]
-    net_energy_flux_toa[] = WVector(FT(0))
-    net_energy_flux_sfc = [sum(similar(Y.f, WVector{FT})) * 0]
-    net_energy_flux_sfc[] = WVector(FT(0))
+    net_energy_flux_toa = [sum(similar(Y.f, CORE_G.WVector{FT})) * 0]
+    net_energy_flux_toa[] = CORE_G.WVector(FT(0))
+    net_energy_flux_sfc = [sum(similar(Y.f, CORE_G.WVector{FT})) * 0]
+    net_energy_flux_sfc[] = CORE_G.WVector(FT(0))
 
     return (;
         simulation,
         operators = (;
             ᶜdivᵥ,
             ᶜgradᵥ,
-            ᶜdivᵥ_stencil = Operator2Stencil(ᶜdivᵥ),
-            ᶠgradᵥ_stencil = Operator2Stencil(ᶠgradᵥ),
-            ᶜinterp_stencil = Operator2Stencil(ᶜinterp),
-            ᶠinterp_stencil = Operator2Stencil(ᶠinterp),
+            ᶜdivᵥ_stencil = CORE_O.Operator2Stencil(ᶜdivᵥ),
+            ᶠgradᵥ_stencil = CORE_O.Operator2Stencil(ᶠgradᵥ),
+            ᶜinterp_stencil = CORE_O.Operator2Stencil(ᶜinterp),
+            ᶠinterp_stencil = CORE_O.Operator2Stencil(ᶠinterp),
             ᶠinterp,
             ᶠcurlᵥ,
             ᶜinterp,
@@ -123,23 +123,23 @@ function default_cache(Y, parsed_args, params, atmos, spaces, numerics, simulati
         Yₜ = similar(Y), # only needed when using increment formulation
         limiters,
         ᶜρh_kwargs...,
-        ᶜuvw = similar(Y.c, Covariant123Vector{FT}),
+        ᶜuvw = similar(Y.c, CORE_G.Covariant123Vector{FT}),
         ᶜK = similar(Y.c, FT),
         ᶜΦ,
         ᶠgradᵥ_ᶜΦ = ᶠgradᵥ.(ᶜΦ),
         ᶜts = similar(Y.c, ts_type),
         ᶜp = similar(Y.c, FT),
         ᶜT = similar(Y.c, FT),
-        ᶜω³ = similar(Y.c, Contravariant3Vector{FT}),
-        ᶠω¹² = similar(Y.f, Contravariant12Vector{FT}),
-        ᶠu¹² = similar(Y.f, Contravariant12Vector{FT}),
-        ᶠu³ = similar(Y.f, Contravariant3Vector{FT}),
+        ᶜω³ = similar(Y.c, CORE_G.Contravariant3Vector{FT}),
+        ᶠω¹² = similar(Y.f, CORE_G.Contravariant12Vector{FT}),
+        ᶠu¹² = similar(Y.f, CORE_G.Contravariant12Vector{FT}),
+        ᶠu³ = similar(Y.f, CORE_G.Contravariant3Vector{FT}),
         ᶜf,
         sfc_conditions,
         z_sfc,
         T_sfc,
-        ts_sfc = similar(level(Y.f, half), ts_type),
-        ∂ᶜK∂ᶠw_data = similar(Y.c, StencilCoefs{-half, half, NTuple{2, FT}}),
+        ts_sfc = similar(CORE_F.level(Y.f, CORE_U.half), ts_type),
+        ∂ᶜK∂ᶠw_data = similar(Y.c, CORE_O.StencilCoefs{-CORE_U.half, CORE_U.half, NTuple{2, FT}}),
         params,
         energy_upwinding,
         tracer_upwinding,
@@ -168,16 +168,16 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
     turbconv = parsed_args["turbconv"];
     case_name = parsed_args["turbconv_case"];
 
-    diffuse_momentum = vert_diff && !(atmos.forcing_type isa HeldSuarezForcing) && !isnothing(atmos.surface_scheme)
+    diffuse_momentum = vert_diff && !(atmos.forcing_type isa ATOMS.HeldSuarezForcing) && !isnothing(atmos.surface_scheme)
     namelist = turbconv == "edmf" ? default_namelist(case_name) : nothing;
 
     (; precip_model, forcing_type, radiation_mode, turbconv_model) = atmos
 
-    thermo_dispatcher = ThermoDispatcher(atmos)
+    thermo_dispatcher = ATOMS.ThermoDispatcher(atmos)
     compressibility_model = atmos.compressibility_model
 
-    radiation_cache = if radiation_mode isa AbstractRRTMGPMode
-        radiation_model_cache(
+    radiation_cache = if radiation_mode isa ATOMS_RRTMGPI.AbstractRRTMGPMode
+        ATOMS.radiation_model_cache(
             Y,
             params,
             radiation_mode;
@@ -188,11 +188,11 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
             ᶜinterp,
         )
     else
-        radiation_model_cache(Y, params, radiation_mode)
+        ATOMS.radiation_model_cache(Y, params, radiation_mode)
     end
 
     return merge(
-        hyperdiffusion_cache(
+        ATOMS.hyperdiffusion_cache(
             Y,
             FT;
             κ₄ = FT(κ₄),
@@ -200,7 +200,7 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
             disable_qt_hyperdiffusion,
         ),
         rayleigh_sponge ?
-        rayleigh_sponge_cache(
+        ATOMS.rayleigh_sponge_cache(
             Y,
             dt;
             zd_rayleigh = FT(zd_rayleigh),
@@ -208,19 +208,19 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
             α_rayleigh_w = FT(α_rayleigh_w),
         ) : NamedTuple(),
         viscous_sponge ?
-        viscous_sponge_cache(
+        ATOMS.viscous_sponge_cache(
             Y;
             zd_viscous = FT(zd_viscous),
             κ₂ = FT(κ₂_sponge),
         ) : NamedTuple(),
-        precipitation_cache(Y, precip_model),
-        subsidence_cache(Y, atmos.subsidence),
-        large_scale_advection_cache(Y, atmos.ls_adv),
-        edmf_coriolis_cache(Y, atmos.edmf_coriolis),
-        forcing_cache(Y, forcing_type),
+        ATOMS.precipitation_cache(Y, precip_model),
+        ATOMS.subsidence_cache(Y, atmos.subsidence),
+        ATOMS.large_scale_advection_cache(Y, atmos.ls_adv),
+        ATOMS.edmf_coriolis_cache(Y, atmos.edmf_coriolis),
+        ATOMS.forcing_cache(Y, forcing_type),
         radiation_cache,
         vert_diff ?
-        vertical_diffusion_boundary_layer_cache(
+        ATOMS.vertical_diffusion_boundary_layer_cache(
             Y,
             atmos,
             FT;
@@ -228,7 +228,7 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
             diffuse_momentum,
         ) : NamedTuple(),
         atmos.non_orographic_gravity_wave ?
-        gravity_wave_cache(atmos.model_config, Y, FT) : NamedTuple(),
+        ATOMS.gravity_wave_cache(atmos.model_config, Y, FT) : NamedTuple(),
         (;
             tendency_knobs = (;
                 vert_diff,
@@ -260,26 +260,26 @@ end
 
 turbconv_cache(Y, turbconv_model::Nothing, atmos, namelist, param_set, parsed_args,) = (; turbconv_model)
 
-function turbconv_cache(Y, turbconv_model::EDMFModel, atmos, namelist, param_set, parsed_args)
-    tc_params = turbconv_params(param_set)
-    FT = undertype(axes(Y.c))
+function turbconv_cache(Y, turbconv_model::ATOMS_TC.EDMFModel, atmos, namelist, param_set, parsed_args)
+    tc_params = ATOMS_P.turbconv_params(param_set)
+    FT = CORE_S.undertype(axes(Y.c))
     imex_edmf_turbconv = parsed_args["imex_edmf_turbconv"]
     imex_edmf_gm = parsed_args["imex_edmf_gm"]
     test_consistency = parsed_args["test_edmf_consistency"]
     case = get_case(namelist["meta"]["casename"])
-    thermo_params = thermodynamics_params(param_set)
+    thermo_params = ATOMS_P.thermodynamics_params(param_set)
     surf_ref_thermo_state = surface_reference_thermo_state(case, thermo_params)
     surf_params = surface_params(case, surf_ref_thermo_state, thermo_params)
     edmf = turbconv_model
-    anelastic_column_kwargs = if true # CA.is_anelastic_column(atmos) # TODO: make conditional
-        ᶠspace_1 = axes(Y.f[ColumnIndex((1, 1), 1)])
-        ᶜspace_1 = axes(Y.c[ColumnIndex((1, 1), 1)])
-        logpressure_fun = log_pressure_profile(
+    anelastic_column_kwargs = if true # ATOMS.is_anelastic_column(atmos) # TODO: make conditional
+        ᶠspace_1 = axes(Y.f[CORE_F.ColumnIndex((1, 1), 1)])
+        ᶜspace_1 = axes(Y.c[CORE_F.ColumnIndex((1, 1), 1)])
+        logpressure_fun = ATOMS.log_pressure_profile(
             ᶠspace_1,
             thermo_params,
             surf_ref_thermo_state,
         )
-        ᶜz = coordinate_field(ᶜspace_1).z
+        ᶜz = CORE_F.coordinate_field(ᶜspace_1).z
         ᶜp₀ = @. exp(logpressure_fun(ᶜz))
         (; ᶜp₀)
     else
@@ -306,11 +306,9 @@ end
 function get_aux(atmos, edmf, Y, ::Type{FT}) where {FT}
     fspace = axes(Y.f)
     cspace = axes(Y.c)
-    aux_cent_fields =
-        FieldFromNamedTuple(cspace, cent_aux_vars, FT, atmos, edmf)
-    aux_face_fields =
-        FieldFromNamedTuple(fspace, face_aux_vars, FT, atmos, edmf)
-    aux = FieldVector(cent = aux_cent_fields, face = aux_face_fields)
+    aux_cent_fields = ATOMS_TC.FieldFromNamedTuple(cspace, cent_aux_vars, FT, atmos, edmf)
+    aux_face_fields = ATOMS_TC.FieldFromNamedTuple(fspace, face_aux_vars, FT, atmos, edmf)
+    aux = CORE_F.FieldVector(cent = aux_cent_fields, face = aux_face_fields)
     return aux
 end
 
@@ -334,17 +332,17 @@ cent_aux_vars_gm(FT, local_geometry, edmf) = (;
 )
 cent_aux_vars(FT, local_geometry, atmos, edmf) = (;
     cent_aux_vars_gm(FT, local_geometry, edmf)...,
-    cent_aux_vars_edmf(FT, local_geometry, atmos)...,
+    ATOMS_TC.cent_aux_vars_edmf(FT, local_geometry, atmos)...,
 )
 
 # Face only
 face_aux_vars_gm(FT, local_geometry, atmos, edmf) = (;
-    sgs_flux_h_tot = Covariant3Vector(FT(0)),
-    sgs_flux_q_tot = Covariant3Vector(FT(0)),
-    sgs_flux_uₕ = Covariant3Vector(FT(0)) ⊗ Covariant12Vector(FT(0), FT(0)),
+    sgs_flux_h_tot = CORE_G.Covariant3Vector(FT(0)),
+    sgs_flux_q_tot = CORE_G.Covariant3Vector(FT(0)),
+    sgs_flux_uₕ = CORE_G.Covariant3Vector(FT(0)) ⊗ CORE_G.Covariant12Vector(FT(0), FT(0)),
     ρ = FT(0),
 )
 face_aux_vars(FT, local_geometry, atmos, edmf) = (;
     face_aux_vars_gm(FT, local_geometry, atmos, edmf)...,
-    face_aux_vars_edmf(FT, local_geometry, edmf)...,
+    ATOMS_TC.face_aux_vars_edmf(FT, local_geometry, edmf)...,
 )

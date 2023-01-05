@@ -173,6 +173,14 @@ function clima_setup(; fast_testing::Bool = true)
         help = "Whether to use a Krylov method to solve the linear system in Newton's method (only for ODE algorithms from ClimaTimeSteppers.jl)"
         arg_type = Bool
         default = false
+        "--use_newton_rtol"
+        help = "Whether to check if the current iteration of Newton's method has an error within a relative tolerance, instead of always taking the maximum number of iterations (only for ClimaTimeSteppers.jl)"
+        arg_type = Bool
+        default = false
+        "--newton_rtol"
+        help = "Relative tolerance of Newton's method (only for ClimaTimeSteppers.jl; only used when `use_newton_rtol` is `true`)"
+        arg_type = Float64
+        default = Float64(1e-5)
         "--krylov_forcing"
         help = "Relative tolerance for the Krylov method (only used if `use_krylov_method` is `true`)"
         arg_type = Float64
@@ -356,28 +364,28 @@ function create_climaatmos_parameter_set(
     ::Type{FT},
     overrides::NamedTuple = NamedTuple(),
 ) where {FT}
-    toml_dict = create_toml_dict(FT; dict_type = "alias")
+    toml_dict = PARAM.create_toml_dict(FT; dict_type = "alias")
     create_climaatmos_parameter_set(toml_dict, overrides)
 end
 
 function create_climaatmos_parameter_set(
-    toml_dict::AbstractTOMLDict,
+    toml_dict::PARAM.AbstractTOMLDict,
     overrides::NamedTuple = NamedTuple(),
 )
-    FT = CLIMAParameters.float_type(toml_dict)
+    FT = PARAM.float_type(toml_dict)
     FTD = FT # can change to Dual for testing duals
 
-    aliases = string.(fieldnames(ThermodynamicsParameters))
-    pairs = get_parameter_values!(toml_dict, aliases, "Thermodynamics")
+    aliases = string.(fieldnames(THERM_P.ThermodynamicsParameters))
+    pairs = PARAM.get_parameter_values!(toml_dict, aliases, "Thermodynamics")
     pairs = override_climaatmos_defaults((; pairs...), overrides)
-    thermo_params = ThermodynamicsParameters{FTD}(; pairs...)
+    thermo_params = THERM_P.ThermodynamicsParameters{FTD}(; pairs...)
     TP = typeof(thermo_params)
 
-    aliases = string.(fieldnames(CloudMicrophysicsParameters))
+    aliases = string.(fieldnames(CLOUD_P.CloudMicrophysicsParameters))
     aliases = setdiff(aliases, ["thermo_params"])
-    pairs = get_parameter_values!(toml_dict, aliases, "CloudMicrophysics")
+    pairs = PARAM.get_parameter_values!(toml_dict, aliases, "CloudMicrophysics")
     pairs = override_climaatmos_defaults((; pairs...), overrides)
-    microphys_params = CloudMicrophysicsParameters{FTD, TP}(;
+    microphys_params = CLOUD_P.CloudMicrophysicsParameters{FTD, TP}(;
         pairs...,
         thermo_params,
     )
@@ -390,7 +398,7 @@ function create_climaatmos_parameter_set(
         "ζ_a_Businger",
         "γ_Businger",
     ]
-    pairs = get_parameter_values!(toml_dict, aliases, "UniversalFunctions")
+    pairs = PARAM.get_parameter_values!(toml_dict, aliases, "UniversalFunctions")
     pairs = (; pairs...) # convert to NamedTuple
     pairs = (;
         Pr_0 = pairs.Pr_0_Businger,
@@ -400,16 +408,16 @@ function create_climaatmos_parameter_set(
         γ = pairs.γ_Businger,
     )
     pairs = override_climaatmos_defaults((; pairs...), overrides)
-    ufp = BusingerParams{FTD}(; pairs...)
+    ufp = SFLUX_UF.BusingerParams{FTD}(; pairs...)
     UFP = typeof(ufp)
 
-    pairs = get_parameter_values!(
+    pairs = PARAM.get_parameter_values!(
         toml_dict,
         ["von_karman_const"],
         "SurfaceFluxesParameters",
     )
     pairs = override_climaatmos_defaults((; pairs...), overrides)
-    surf_flux_params = SurfaceFluxesParameters{FTD, UFP, TP}(;
+    surf_flux_params = SFLUX_P.SurfaceFluxesParameters{FTD, UFP, TP}(;
         pairs...,
         ufp,
         thermo_params,
@@ -423,26 +431,26 @@ function create_climaatmos_parameter_set(
         "Omega",
         "planet_radius",
     ]
-    pairs = get_parameter_values!(toml_dict, aliases, "TurbulenceConvection")
+    pairs = PARAM.get_parameter_values!(toml_dict, aliases, "TurbulenceConvection")
     pairs = override_climaatmos_defaults((; pairs...), overrides)
 
-    tc_params = TurbulenceConvectionParameters{FTD, MP, SFP}(;
+    tc_params = ATOMS_TC_P.TurbulenceConvectionParameters{FTD, MP, SFP}(;
         pairs...,
         microphys_params,
         surf_flux_params,
     )
 
-    aliases = string.(fieldnames(RRTMGPParameters))
-    pairs = get_parameter_values!(toml_dict, aliases, "RRTMGP")
+    aliases = string.(fieldnames(RRTMGP_P.RRTMGPParameters))
+    pairs = PARAM.get_parameter_values!(toml_dict, aliases, "RRTMGP")
     params = override_climaatmos_defaults((; pairs...), overrides) # overrides
-    rrtmgp_params = RRTMGPParameters{FTD}(; params...)
+    rrtmgp_params = RRTMGP_P.RRTMGPParameters{FTD}(; params...)
 
-    aliases = string.(fieldnames(InsolationParameters))
-    pairs = get_parameter_values!(toml_dict, aliases, "Insolation")
+    aliases = string.(fieldnames(SOLAR_P.InsolationParameters))
+    pairs = PARAM.get_parameter_values!(toml_dict, aliases, "Insolation")
     params = override_climaatmos_defaults((; pairs...), overrides) # overrides
-    insolation_params = InsolationParameters{FTD}(; params...)
+    insolation_params = SOLAR_P.InsolationParameters{FTD}(; params...)
 
-    pairs = get_parameter_values!(
+    pairs = PARAM.get_parameter_values!(
         toml_dict,
         ["Omega", "planet_radius", "astro_unit"],
         "ClimaAtmos",
@@ -450,7 +458,7 @@ function create_climaatmos_parameter_set(
     pairs = (; pairs...) # convert to NamedTuple
     pairs = override_climaatmos_defaults((; pairs...), overrides)
 
-    param_set = ClimaAtmosParameters(;
+    param_set = ATOMS_P.ClimaAtmosParameters(;
         ug = FTD(1.0), # for Ekman problem
         vg = FTD(0.0), # for Ekman problem
         f = FTD(5e-5), # for Ekman problem
@@ -494,7 +502,7 @@ is_baro_wave(parsed_args) = all((
 ))
 
 function parameter_set(::Type{FT}, parsed_args) where {FT}
-    toml_dict = create_toml_dict(FT; dict_type = "alias")
+    toml_dict = PARAM.create_toml_dict(FT; dict_type = "alias")
     dt = FT(time_to_seconds(parsed_args["dt"]))
     return if is_column_edmf(parsed_args)
         tc_parameter_set(toml_dict, dt)
@@ -580,10 +588,10 @@ end
 function get_spaces_restart(Y)
     center_space = axes(Y.c)
     face_space = axes(Y.f)
-    hspace = horizontal_space(center_space)
+    hspace = CORE_S.horizontal_space(center_space)
     horizontal_mesh = hspace.topology.mesh
     quad = horizontal_mesh.ne + 1
-    vertical_mesh = vertical_topology(center_space).mesh
+    vertical_mesh = CORE_S.vertical_topology(center_space).mesh
     z_max = vertical_mesh.domain.coord_max.z
     z_elem = length(vertical_mesh.faces) - 1
     return (; center_space, face_space, horizontal_mesh, quad, z_max, z_elem)
@@ -591,9 +599,9 @@ end
 
 function get_state_restart(comms_ctx)
     @assert haskey(ENV, "RESTART_FILE")
-    reader = HDF5Reader(ENV["RESTART_FILE"], comms_ctx)
-    Y = read_field(reader, "Y")
-    t_start = HDF5.read_attribute(reader.file, "time")
+    reader = CORE_IO.HDF5Reader(ENV["RESTART_FILE"], comms_ctx)
+    Y = CORE_IO.read_field(reader, "Y")
+    t_start = CORE_IO.HDF5.read_attribute(reader.file, "time")
     return (Y, t_start)
 end
 
@@ -603,19 +611,19 @@ function get_state_fresh_start(parsed_args, spaces, params, atmos)
     t_start = FT(0)
 
     center_initial_condition = if is_baro_wave(parsed_args)
-        center_initial_condition_baroclinic_wave
+        ATOMS_IC.center_initial_condition_baroclinic_wave
     elseif parsed_args["config"] == "sphere"
-        center_initial_condition_3d
+        ATOMS_IC.center_initial_condition_3d
     elseif parsed_args["config"] == "column"
-        center_initial_condition_column
+        ATOMS_IC.center_initial_condition_column
     elseif parsed_args["config"] == "box"
-        center_initial_condition_box
+        ATOMS_IC.center_initial_condition_box
     end
     perturb_initstate = parsed_args["perturb_initstate"]
 
-    Y = init_state(
+    Y = ATOMS_IC.init_state(
         center_initial_condition,
-        face_initial_condition,
+        ATOMS_IC.face_initial_condition,
         center_space,
         face_space,
         params,
@@ -631,20 +639,20 @@ end
 
 
 function cubed_sphere_mesh(; radius, h_elem)
-    domain = SphereDomain(radius)
-    return EquiangularCubedSphere(domain, h_elem)
+    domain = CORE_D.SphereDomain(radius)
+    return CORE_M.EquiangularCubedSphere(domain, h_elem)
 end
 
 function make_horizontal_space(mesh, quad, comms_ctx)
-    if mesh isa AbstractMesh1D
+    if mesh isa CORE_M.AbstractMesh1D
         error("Distributed mode does not work with 1D horizontal spaces.")
-    elseif mesh isa AbstractMesh2D
-        topology = DistributedTopology2D(
+    elseif mesh isa CORE_M.AbstractMesh2D
+        topology = CORE_T.DistributedTopology2D(
             comms_ctx,
             mesh,
-            spacefillingcurve(mesh),
+            CORE_T.spacefillingcurve(mesh),
         )
-        space = SpectralElementSpace2D(topology, quad)
+        space = CORE_S.SpectralElementSpace2D(topology, quad)
     end
     return space
 end
@@ -656,44 +664,44 @@ function make_hybrid_spaces(
     z_stretch;
     surface_warp = nothing,
 )
-    z_domain = IntervalDomain(
-        ZPoint(zero(z_max)),
-        ZPoint(z_max);
+    z_domain = CORE_D.IntervalDomain(
+        CORE_G.ZPoint(zero(z_max)),
+        CORE_G.ZPoint(z_max);
         boundary_tags = (:bottom, :top),
     )
-    z_mesh = IntervalMesh(z_domain, z_stretch; nelems = z_elem)
+    z_mesh = CORE_M.IntervalMesh(z_domain, z_stretch; nelems = z_elem)
     @info "z heights" z_mesh.faces
     if isnothing(surface_warp)
-        z_topology = IntervalTopology(z_mesh)
-        z_space = CenterFiniteDifferenceSpace(z_topology)
-        center_space = ExtrudedFiniteDifferenceSpace(h_space, z_space)
-        face_space = FaceExtrudedFiniteDifferenceSpace(center_space)
+        z_topology = CORE_T.IntervalTopology(z_mesh)
+        z_space = CORE_S.CenterFiniteDifferenceSpace(z_topology)
+        center_space = CORE_S.ExtrudedFiniteDifferenceSpace(h_space, z_space)
+        face_space = CORE_S.FaceExtrudedFiniteDifferenceSpace(center_space)
     else
-        z_surface = surface_warp.(coordinate_field(h_space))
-        z_face_space = FaceFiniteDifferenceSpace(z_mesh)
-        face_space = ExtrudedFiniteDifferenceSpace(
+        z_surface = surface_warp.(CORE_F.coordinate_field(h_space))
+        z_face_space = CORE_S.FaceFiniteDifferenceSpace(z_mesh)
+        face_space = CORE_S.ExtrudedFiniteDifferenceSpace(
             h_space,
             z_face_space,
-            LinearAdaption(z_surface),
+            CORE_H.LinearAdaption(z_surface),
         )
-        center_space = CenterExtrudedFiniteDifferenceSpace(face_space)
+        center_space = CORE_S.CenterExtrudedFiniteDifferenceSpace(face_space)
     end
     return center_space, face_space
 end
 
 function periodic_rectangle_mesh(; x_max, y_max, x_elem, y_elem)
-    x_domain = IntervalDomain(
-        XPoint(zero(x_max)),
-        XPoint(x_max);
+    x_domain = CORE_D.IntervalDomain(
+        CORE_G.XPoint(zero(x_max)),
+        CORE_G.XPoint(x_max);
         periodic = true,
     )
-    y_domain = IntervalDomain(
-        YPoint(zero(y_max)),
-        YPoint(y_max);
+    y_domain = CORE_D.IntervalDomain(
+        CORE_G.YPoint(zero(y_max)),
+        CORE_G.YPoint(y_max);
         periodic = true,
     )
-    domain = RectangleDomain(x_domain, y_domain)
-    return RectilinearMesh(domain, x_elem, y_elem)
+    domain = CORE_D.RectangleDomain(x_domain, y_domain)
+    return CORE_M.RectilinearMesh(domain, x_elem, y_elem)
 end
 
 function get_spaces(parsed_args, params, comms_ctx)
@@ -705,7 +713,7 @@ function get_spaces(parsed_args, params, comms_ctx)
     topography = parsed_args["topography"]
 
     if topography == "DCMIP200"
-        warp_function = topography_dcmip200
+        warp_function = ATOMS.topography_dcmip200
     elseif topography == "NoWarp"
         warp_function = nothing
     end
@@ -713,16 +721,16 @@ function get_spaces(parsed_args, params, comms_ctx)
     @info "Topography" topography
 
     h_elem = parsed_args["h_elem"]
-    radius = planet_radius(params)
+    radius = ATOMS_P.planet_radius(params)
     center_space, face_space = if parsed_args["config"] == "sphere"
         nh_poly = parsed_args["nh_poly"]
-        quad = Quadratures.GLL{nh_poly + 1}()
+        quad = CORE_S.Quadratures.GLL{nh_poly + 1}()
         horizontal_mesh = cubed_sphere_mesh(; radius, h_elem)
         h_space = make_horizontal_space(horizontal_mesh, quad, comms_ctx)
         z_stretch = if parsed_args["z_stretch"]
-            GeneralizedExponentialStretching(dz_bottom, dz_top)
+            CORE_M.GeneralizedExponentialStretching(dz_bottom, dz_top)
         else
-            Uniform()
+            CORE_M.Uniform()
         end
         if isnothing(warp_function)
             make_hybrid_spaces(h_space, z_max, z_elem, z_stretch)
@@ -739,7 +747,7 @@ function get_spaces(parsed_args, params, comms_ctx)
         @warn "perturb_initstate flag is ignored for single column configuration"
         FT = eltype(params)
         Δx = FT(1) # Note: This value shouldn't matter, since we only have 1 column.
-        quad = Quadratures.GL{1}()
+        quad = CORE_S.Quadratures.GL{1}()
         horizontal_mesh = periodic_rectangle_mesh(;
             x_max = Δx,
             y_max = Δx,
@@ -748,15 +756,15 @@ function get_spaces(parsed_args, params, comms_ctx)
         )
         h_space = make_horizontal_space(horizontal_mesh, quad, comms_ctx)
         z_stretch = if parsed_args["z_stretch"]
-            GeneralizedExponentialStretching(dz_bottom, dz_top)
+            CORE_M.GeneralizedExponentialStretching(dz_bottom, dz_top)
         else
-            Uniform()
+            CORE_M.Uniform()
         end
         make_hybrid_spaces(h_space, z_max, z_elem, z_stretch)
     elseif parsed_args["config"] == "box"
         FT = eltype(params)
         nh_poly = parsed_args["nh_poly"]
-        quad = Quadratures.GLL{nh_poly + 1}()
+        quad = CORE_S.Quadratures.GLL{nh_poly + 1}()
         x_elem = Int(parsed_args["x_elem"])
         x_max = FT(parsed_args["x_max"])
         y_elem = Int(parsed_args["y_elem"])
@@ -769,9 +777,9 @@ function get_spaces(parsed_args, params, comms_ctx)
         )
         h_space = make_horizontal_space(horizontal_mesh, quad, comms_ctx)
         z_stretch = if parsed_args["z_stretch"]
-            GeneralizedExponentialStretching(dz_bottom, dz_top)
+            CORE_M.GeneralizedExponentialStretching(dz_bottom, dz_top)
         else
-            Uniform()
+            CORE_M.Uniform()
         end
         make_hybrid_spaces(h_space, z_max, z_elem, z_stretch)
     end
@@ -1009,7 +1017,7 @@ function write_file(namelist, root::String = ".")
 end
 
 function init_tc!(Y, p, params)
-    bycolumn(axes(Y.c)) do colidx
+    CORE_F.bycolumn(axes(Y.c)) do colidx
         init_tc!(Y, p, params, colidx)
     end
 end
@@ -1017,22 +1025,22 @@ end
 function init_tc!(Y, p, params, colidx)
 
     (; edmf, surf_ref_thermo_state, surf_params, case) = p.edmf_cache
-    tc_params = turbconv_params(params)
+    tc_params = ATOMS_P.turbconv_params(params)
 
     FT = eltype(edmf)
     # `nothing` goes into State because OrdinaryDiffEq.jl owns tendencies.
-    state = tc_column_state(Y, p, nothing, colidx)
-    thermo_params = thermodynamics_params(params)
+    state = ATOMS_TC.tc_column_state(Y, p, nothing, colidx)
+    thermo_params = ATOMS_P.thermodynamics_params(params)
 
-    grid = Grid(state)
+    grid = ATOMS_TC.Grid(state)
     FT = eltype(grid)
-    C123 = Covariant123Vector
+    C123 = CORE_G.Covariant123Vector
     t = FT(0)
 
-    if is_anelastic_column(p.atmos)
+    if ATOMS.is_anelastic_column(p.atmos)
         @. p.ᶜp[colidx] = p.edmf_cache.ᶜp₀
 
-        compute_ref_density!(
+        ATOMS.compute_ref_density!(
             Y.c.ρ[colidx],
             p.ᶜp[colidx],
             thermo_params,
@@ -1041,7 +1049,7 @@ function init_tc!(Y, p, params, colidx)
     else
         @. p.ᶜp[colidx] = p.edmf_cache.ᶜp₀
 
-        compute_ref_density!(
+        ATOMS.compute_ref_density!(
             Y.c.ρ[colidx],
             p.ᶜp[colidx],
             thermo_params,
@@ -1049,7 +1057,7 @@ function init_tc!(Y, p, params, colidx)
         )
     end
     # TODO: can we simply remove this?
-    If = InterpolateC2F(bottom = Extrapolate(), top = Extrapolate())
+    If = CORE_O.InterpolateC2F(bottom = CORE_O.Extrapolate(), top = CORE_O.Extrapolate())
     @. p.edmf_cache.aux.face.ρ[colidx] = If(Y.c.ρ[colidx])
 
     # TODO: convert initialize_profiles to set prognostic state, not aux state
@@ -1067,18 +1075,18 @@ end
 
 function set_thermo_state_pθq!(Y, p, colidx)
     (; edmf_cache, params) = p
-    thermo_params = thermodynamics_params(params)
+    thermo_params = ATOMS_P.thermodynamics_params(params)
     (; moisture_model) = edmf_cache.edmf
     ᶜts_gm = p.ᶜts[colidx]
     ᶜρ = Y.c.ρ[colidx]
     ᶜp = p.ᶜp[colidx]
     θ_liq_ice = edmf_cache.aux.cent.θ_liq_ice[colidx]
 
-    if moisture_model isa DryModel
-        @. ᶜts_gm = PhaseDry_pθ(thermo_params, ᶜp, θ_liq_ice)
-    elseif moisture_model isa EquilMoistModel
+    if moisture_model isa ATOMS.DryModel
+        @. ᶜts_gm = THERM.PhaseDry_pθ(thermo_params, ᶜp, θ_liq_ice)
+    elseif moisture_model isa ATOMS.EquilMoistModel
         ρq_tot = Y.c.ρq_tot[colidx]
-        @. ᶜts_gm = PhaseEquil_pθq(thermo_params, ᶜp, θ_liq_ice, ρq_tot / ᶜρ)
+        @. ᶜts_gm = THERM.PhaseEquil_pθq(thermo_params, ᶜp, θ_liq_ice, ρq_tot / ᶜρ)
     else
         error("TODO: add non-equilibrium moisture model support")
     end
@@ -1086,26 +1094,26 @@ function set_thermo_state_pθq!(Y, p, colidx)
 end
 
 function set_grid_mean_from_thermo_state!(thermo_params, state, grid)
-    Ic = InterpolateF2C()
-    If = InterpolateC2F(bottom = Extrapolate(), top = Extrapolate())
-    ts_gm = center_aux_grid_mean_ts(state)
-    prog_gm = center_prog_grid_mean(state)
-    prog_gm_f = face_prog_grid_mean(state)
-    aux_gm = center_aux_grid_mean(state)
-    aux_gm_f = face_aux_grid_mean(state)
-    prog_gm_uₕ = grid_mean_uₕ(state)
+    Ic = CORE_O.InterpolateF2C()
+    If = CORE_O.InterpolateC2F(bottom = CORE_O.Extrapolate(), top = CORE_O.Extrapolate())
+    ts_gm = ATOMS_TC.center_aux_grid_mean_ts(state)
+    prog_gm = ATOMS_TC.center_prog_grid_mean(state)
+    prog_gm_f = ATOMS_TC.face_prog_grid_mean(state)
+    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
+    aux_gm_f = ATOMS_TC.face_aux_grid_mean(state)
+    prog_gm_uₕ = ATOMS_TC.grid_mean_uₕ(state)
 
-    @. prog_gm.ρ = air_density(thermo_params, ts_gm)
+    @. prog_gm.ρ = THERM.air_density(thermo_params, ts_gm)
     ρ_c = prog_gm.ρ
     ρ_f = aux_gm_f.ρ
 
-    C123 = Covariant123Vector
+    C123 = CORE_G.Covariant123Vector
     @. prog_gm.ρe_tot =
-        ρ_c * total_energy(
+        ρ_c * THERM.total_energy(
             thermo_params,
             ts_gm,
             norm_sqr(C123(prog_gm_uₕ) + C123(Ic(prog_gm_f.w))) / 2,
-            geopotential(thermo_params, grid.zc.z),
+            ATOMS_TC.geopotential(thermo_params, grid.zc.z),
         )
 
     @. prog_gm.ρq_tot = ρ_c * aux_gm.q_tot
@@ -1116,42 +1124,41 @@ end
 
 
 function assign_thermo_aux!(state, grid, moisture_model, thermo_params)
-    If = InterpolateC2F(bottom = Extrapolate(), top = Extrapolate())
-    aux_gm = center_aux_grid_mean(state)
-    aux_gm_f = face_aux_grid_mean(state)
-    prog_gm = center_prog_grid_mean(state)
-    ᶜts = center_aux_grid_mean_ts(state)
-    p_c = center_aux_grid_mean_p(state)
+    If = CORE_O.InterpolateC2F(bottom = CORE_O.Extrapolate(), top = CORE_O.Extrapolate())
+    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
+    aux_gm_f = ATOMS_TC.face_aux_grid_mean(state)
+    prog_gm = ATOMS_TC.center_prog_grid_mean(state)
+    ᶜts = ATOMS_TC.center_aux_grid_mean_ts(state)
+    p_c = ATOMS_TC.center_aux_grid_mean_p(state)
     ρ_c = prog_gm.ρ
     ρ_f = aux_gm_f.ρ
     @. ρ_f = If(ρ_c)
 
     @. aux_gm.q_tot = prog_gm.ρq_tot / ρ_c
-    @. aux_gm.q_liq = liquid_specific_humidity(thermo_params, ᶜts)
-    @. aux_gm.q_ice = ice_specific_humidity(thermo_params, ᶜts)
-    @. aux_gm.T = air_temperature(thermo_params, ᶜts)
-    @. aux_gm.RH = relative_humidity(thermo_params, ᶜts)
-    @. aux_gm.θ_liq_ice = liquid_ice_pottemp(thermo_params, ᶜts)
-    @. aux_gm.h_tot =
-        total_specific_enthalpy(thermo_params, ᶜts, prog_gm.ρe_tot / ρ_c)
-    @. p_c = air_pressure(thermo_params, ᶜts)
-    @. aux_gm.θ_virt = virtual_pottemp(thermo_params, ᶜts)
+    @. aux_gm.q_liq = THERM.liquid_specific_humidity(thermo_params, ᶜts)
+    @. aux_gm.q_ice = THERM.ice_specific_humidity(thermo_params, ᶜts)
+    @. aux_gm.T = THERM.air_temperature(thermo_params, ᶜts)
+    @. aux_gm.RH = THERM.relative_humidity(thermo_params, ᶜts)
+    @. aux_gm.θ_liq_ice = THERM.liquid_ice_pottemp(thermo_params, ᶜts)
+    @. aux_gm.h_tot = THERM.total_specific_enthalpy(thermo_params, ᶜts, prog_gm.ρe_tot / ρ_c)
+    @. p_c = THERM.air_pressure(thermo_params, ᶜts)
+    @. aux_gm.θ_virt = THERM.virtual_pottemp(thermo_params, ᶜts)
     return
 end
 
 function initialize_edmf(
-    edmf::EDMFModel,
-    grid::Grid,
-    state::State,
+    edmf::ATOMS_TC.EDMFModel,
+    grid::ATOMS_TC.Grid,
+    state::ATOMS_TC.State,
     surf_params,
-    param_set::AbstractTurbulenceConvectionParameters,
+    param_set::ATOMS_TC_P.AbstractTurbulenceConvectionParameters,
     t::Real,
 )
-    thermo_params = thermodynamics_params(param_set)
+    thermo_params = ATOMS_P.thermodynamics_params(param_set)
     initialize_covariance(edmf, grid, state)
-    aux_gm = center_aux_grid_mean(state)
-    ts_gm = center_aux_grid_mean_ts(state)
-    @. aux_gm.θ_virt = virtual_pottemp(thermo_params, ts_gm)
+    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
+    ts_gm = ATOMS_TC.center_aux_grid_mean_ts(state)
+    @. aux_gm.θ_virt = THERM.virtual_pottemp(thermo_params, ts_gm)
     surf = get_surface(
         state.p.atmos.model_config,
         surf_params,
@@ -1161,23 +1168,23 @@ function initialize_edmf(
         param_set,
     )
     initialize_updrafts(edmf, grid, state, surf)
-    set_edmf_surface_bc(edmf, grid, state, surf, param_set)
+    ATOMS_TC.set_edmf_surface_bc(edmf, grid, state, surf, param_set)
     return nothing
 end
 
 function initialize_covariance(
-    edmf::EDMFModel,
-    grid::Grid,
-    state::State,
+    edmf::ATOMS_TC.EDMFModel,
+    grid::ATOMS_TC.Grid,
+    state::ATOMS_TC.State,
 )
 
-    kc_surf = kc_surface(grid)
-    aux_gm = center_aux_grid_mean(state)
-    prog_en = center_prog_environment(state)
-    aux_en = center_aux_environment(state)
-    prog_gm = center_prog_grid_mean(state)
+    kc_surf = ATOMS_TC.kc_surface(grid)
+    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
+    prog_en = ATOMS_TC.center_prog_environment(state)
+    aux_en = ATOMS_TC.center_aux_environment(state)
+    prog_gm = ATOMS_TC.center_prog_grid_mean(state)
     ρ_c = prog_gm.ρ
-    aux_bulk = center_aux_bulk(state)
+    aux_bulk = ATOMS_TC.center_aux_bulk(state)
     ae = 1 .- aux_bulk.area # area of environment
 
     aux_en.tke .= aux_gm.tke
@@ -1186,7 +1193,7 @@ function initialize_covariance(
     aux_en.HQTcov .= aux_gm.HQTcov
 
     prog_en.ρatke .= aux_en.tke .* ρ_c .* ae
-    if edmf.thermo_covariance_model isa PrognosticThermoCovariances
+    if edmf.thermo_covariance_model isa ATOMS_TC.PrognosticThermoCovariances
         prog_en.ρaHvar .= aux_gm.Hvar .* ρ_c .* ae
         prog_en.ρaQTvar .= aux_gm.QTvar .* ρ_c .* ae
         prog_en.ρaHQTcov .= aux_gm.HQTcov .* ρ_c .* ae
@@ -1195,22 +1202,21 @@ function initialize_covariance(
 end
 
 function initialize_updrafts(edmf, grid, state, surf)
-    FT = float_type(state)
-    N_up = n_updrafts(edmf)
-    kc_surf = kc_surface(grid)
-    aux_up = center_aux_updrafts(state)
-    prog_gm = center_prog_grid_mean(state)
-    aux_up = center_aux_updrafts(state)
-    aux_up_f = face_aux_updrafts(state)
-    aux_gm = center_aux_grid_mean(state)
-    prog_up = center_prog_updrafts(state)
-    prog_up_f = face_prog_updrafts(state)
+    FT = PARAM.float_type(state)
+    N_up = ATOMS_TC.n_updrafts(edmf)
+    kc_surf = ATOMS_TC.kc_surface(grid)
+    aux_up = ATOMS_TC.center_aux_updrafts(state)
+    prog_gm = ATOMS_TC.center_prog_grid_mean(state)
+    aux_up = ATOMS_TC.center_aux_updrafts(state)
+    aux_up_f = ATOMS_TC.face_aux_updrafts(state)
+    aux_gm = ATOMS_TC.center_aux_grid_mean(state)
+    prog_up = ATOMS_TC.center_prog_updrafts(state)
+    prog_up_f = ATOMS_TC.face_prog_updrafts(state)
     ρ_c = prog_gm.ρ
     a_min = edmf.minimum_area
     @inbounds for i in 1:N_up
-        lg = local_geometry_field(axes(prog_up_f[i].w))
-        @. prog_up_f[i].w =
-            Covariant3Vector(WVector(FT(0)), lg)
+        lg = CORE_F.local_geometry_field(axes(prog_up_f[i].w))
+        @. prog_up_f[i].w = CORE_G.Covariant3Vector(CORE_G.WVector(FT(0)), lg)
 
         @. aux_up[i].buoy = 0
         # Simple treatment for now, revise when multiple updraft closures
@@ -1225,7 +1231,7 @@ function initialize_updrafts(edmf, grid, state, surf)
         @. prog_up[i].ρaq_tot = prog_up[i].ρarea * aux_up[i].q_tot
         @. prog_up[i].ρaθ_liq_ice = prog_up[i].ρarea * aux_up[i].θ_liq_ice
 
-        a_surf = area_surface_bc(surf, edmf, i)
+        a_surf = ATOMS_TC.area_surface_bc(surf, edmf, i)
         aux_up[i].area[kc_surf] = a_surf
         prog_up[i].ρarea[kc_surf] = ρ_c[kc_surf] * a_surf
     end

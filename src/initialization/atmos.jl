@@ -22,25 +22,25 @@ function get_atmos(::Type{FT}, parsed_args, namelist) where {FT}
     non_orographic_gravity_wave = parsed_args["non_orographic_gravity_wave"]
     @assert non_orographic_gravity_wave in (true, false)
 
-    _moisture_model = moisture_model(parsed_args)
-    _precip_model = precipitation_model(parsed_args)
-    _radiation_mode = radiation_mode(parsed_args, FT)
+    _moisture_model = ATOMS.moisture_model(parsed_args)
+    _precip_model = ATOMS.precipitation_model(parsed_args)
+    _radiation_mode = ATOMS.radiation_mode(parsed_args, FT)
 
-    atmos = AtmosModel(;
+    atmos = ATOMS.AtmosModel(;
         moisture_model = _moisture_model,
-        model_config = model_config(parsed_args),
-        coupling = coupling_type(parsed_args),
-        perf_mode = perf_mode(parsed_args),
-        energy_form = energy_form(parsed_args),
+        model_config = ATOMS.model_config(parsed_args),
+        coupling = ATOMS.coupling_type(parsed_args),
+        perf_mode = ATOMS.perf_mode(parsed_args),
+        energy_form = ATOMS.energy_form(parsed_args),
         radiation_mode = _radiation_mode,
-        subsidence = subsidence_model(parsed_args, _radiation_mode, FT),
-        ls_adv = large_scale_advection_model(parsed_args, FT),
-        edmf_coriolis = edmf_coriolis(parsed_args, FT),
+        subsidence = ATOMS.subsidence_model(parsed_args, _radiation_mode, FT),
+        ls_adv = ATOMS.large_scale_advection_model(parsed_args, FT),
+        edmf_coriolis = ATOMS.edmf_coriolis(parsed_args, FT),
         precip_model = _precip_model,
-        forcing_type = forcing_type(parsed_args),
-        turbconv_model = turbconv_model(FT, _moisture_model, _precip_model, parsed_args, namelist),
-        compressibility_model = compressibility_model(parsed_args),
-        surface_scheme = surface_scheme(FT, parsed_args),
+        forcing_type = ATOMS.forcing_type(parsed_args),
+        turbconv_model = ATOMS.turbconv_model(FT, _moisture_model, _precip_model, parsed_args, namelist),
+        compressibility_model = ATOMS.compressibility_model(parsed_args),
+        surface_scheme = ATOMS.surface_scheme(FT, parsed_args),
         non_orographic_gravity_wave,
     )
 
