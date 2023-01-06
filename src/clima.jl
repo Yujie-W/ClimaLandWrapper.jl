@@ -74,56 +74,29 @@ function run_clima_example!(; fast_testing::Bool = true)
     _atmos = get_atmos(FT, _parsed_args, _namelist)
 
     @time "Allocating Y" if _simulation.restart
-        (Y, t_start) = get_state_restart(_comms_ctx);
+        (Y, _t_start) = get_state_restart(_comms_ctx);
         spaces = get_spaces_restart(Y);
     else
         spaces = get_spaces(_parsed_args, _params, _comms_ctx);
-        (Y, t_start) = get_state_fresh_start(_parsed_args, spaces, _params, _atmos);
+        (Y, _t_start) = get_state_fresh_start(_parsed_args, spaces, _params, _atmos);
     end;
 
     _numerics = get_numerics(_parsed_args);
-    p = get_cache(Y, _parsed_args, _params, spaces, _atmos, _numerics, _simulation)
+    _p = get_cache(Y, _parsed_args, _params, spaces, _atmos, _numerics, _simulation)
     if _parsed_args["turbconv"] == "edmf"
-        @time "init_tc!" init_tc!(Y, p, _params)
+        @time "init_tc!" init_tc!(Y, _p, _params)
     end
 
     if _parsed_args["discrete_hydrostatic_balance"]
-        ATMOS.set_discrete_hydrostatic_balanced_state!(Y, p)
+        ATMOS.set_discrete_hydrostatic_balanced_state!(Y, _p)
     end
 
+    _t_span = (_t_start, _simulation.t_end)
     @time "ode_configuration" _ode_algo = ode_configuration(Y, _parsed_args, _atmos)
-    @time "get_callbacks" callback = get_callbacks(Y, _parsed_args, _simulation, _atmos, _comms_ctx, _params);
-    @time "args_integrator" integrator_args, integrator_kwargs = args_integrator(_parsed_args, Y, p, _t_span, _ode_algo, callback)
-    # @time "get_integrator" integrator = get_integrator(integrator_args, integrator_kwargs)
-    # atmos_sim = atmos_init(FT, Y, integrator, params = _params);
-
-    #=
-    # Print tendencies:
-    # @info "Model composition" p.atmos...
-    @info "Tendencies" p.tendency_knobs...
-
-    include("callbacks.jl")
-
-    @time "get_callbacks" callback = get_callbacks(parsed_args, simulation, atmos, params);
-    tspan = (t_start, simulation.t_end)
-    @time "args_integrator" integrator_args, integrator_kwargs = args_integrator(parsed_args, Y, p, tspan, ode_algo, callback)
-    @time "get_integrator" integrator = get_integrator(integrator_args, integrator_kwargs)
-
-
-
-
-
-
-
-
-    atmos_sim = atmos_init(FT, Y, integrator, params = _params);
-
-    =#
-
-    #
-
-
-
+    @time "get_callbacks" _callback = get_callbacks(Y, _parsed_args, _simulation, _atmos, _comms_ctx, _params);
+    @time "args_integrator" _integrator_args, _integrator_kwargs = args_integrator(_parsed_args, Y, _p, _t_span, _ode_algo, _callback)
+    @time "get_integrator" _integrator = get_integrator(_integrator_args, _integrator_kwargs)
+    atmos_sim = atmos_init(FT, Y, _integrator, params = _params);
 
     # 4. get the path to necessary files
     _coupler_dir = "/home/wyujie/DATASERVER/model/CLIMA/COUPLER/examples";

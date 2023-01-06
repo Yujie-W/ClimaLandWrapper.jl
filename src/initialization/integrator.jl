@@ -1,3 +1,8 @@
+function get_integrator(args, kwargs)
+    @time "Define integrator" integrator = ODE.init(args...; kwargs...)
+    return integrator
+end
+
 function args_integrator(parsed_args, Y, p, tspan, ode_algo, callback)
     (; atmos, simulation) = p
     (; dt) = simulation

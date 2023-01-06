@@ -191,51 +191,22 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
         ATMOS.radiation_model_cache(Y, params, radiation_mode)
     end
 
+
     return merge(
-        ATMOS.hyperdiffusion_cache(
-            Y,
-            FT;
-            κ₄ = FT(κ₄),
-            use_tempest_mode,
-            disable_qt_hyperdiffusion,
-        ),
-        rayleigh_sponge ?
-        ATMOS.rayleigh_sponge_cache(
-            Y,
-            dt;
-            zd_rayleigh = FT(zd_rayleigh),
-            α_rayleigh_uₕ = FT(α_rayleigh_uₕ),
-            α_rayleigh_w = FT(α_rayleigh_w),
-        ) : NamedTuple(),
-        viscous_sponge ?
-        ATMOS.viscous_sponge_cache(
-            Y;
-            zd_viscous = FT(zd_viscous),
-            κ₂ = FT(κ₂_sponge),
-        ) : NamedTuple(),
+        ATMOS.hyperdiffusion_cache(atmos.hyperdiff, Y),
+        ATMOS.rayleigh_sponge_cache(atmos.rayleigh_sponge, Y),
+        ATMOS.viscous_sponge_cache(atmos.viscous_sponge, Y),
         ATMOS.precipitation_cache(Y, precip_model),
         ATMOS.subsidence_cache(Y, atmos.subsidence),
         ATMOS.large_scale_advection_cache(Y, atmos.ls_adv),
         ATMOS.edmf_coriolis_cache(Y, atmos.edmf_coriolis),
         ATMOS.forcing_cache(Y, forcing_type),
         radiation_cache,
-        vert_diff ?
-        ATMOS.vertical_diffusion_boundary_layer_cache(
-            Y,
-            atmos,
-            FT;
-            C_E = FT(parsed_args["C_E"]),
-            diffuse_momentum,
-        ) : NamedTuple(),
-        atmos.non_orographic_gravity_wave ?
-        ATMOS.gravity_wave_cache(atmos.model_config, Y, FT) : NamedTuple(),
+        ATMOS.vertical_diffusion_boundary_layer_cache(Y, atmos),
+        atmos.non_orographic_gravity_wave ? ATMOS.gravity_wave_cache(atmos.model_config, Y, FT) : NamedTuple(),
         (;
             tendency_knobs = (;
-                vert_diff,
-                rayleigh_sponge,
-                viscous_sponge,
-                hyperdiff,
-                non_orographic_gravity_wave = atmos.non_orographic_gravity_wave,
+                non_orographic_gravity_wave = atmos.non_orographic_gravity_wave
             )
         ),
         (; thermo_dispatcher),
