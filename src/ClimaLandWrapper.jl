@@ -43,7 +43,7 @@ using Revise
 
 using ArgParse: ArgParseSettings, parse_args, @add_arg_table
 using Colors: @colorant_str
-using Dates: DateTime, Second, datetime2unix, day, days, month, year, @dateformat_str
+using Dates: DateTime, Second, datetime2unix, day, days, firstdayofmonth, month, year, @dateformat_str
 using Dierckx: Spline1D
 using DiffEqBase: AbstractODEAlgorithm
 using JLD2: jldsave, load
@@ -61,6 +61,7 @@ include("initialization/cache.jl"     )
 include("initialization/callback.jl"  )
 include("initialization/cases.jl"     )
 include("initialization/config.jl"    )
+include("initialization/coupler.jl"   )
 include("initialization/ice.jl"       )
 include("initialization/integrator.jl")
 include("initialization/land.jl"      )

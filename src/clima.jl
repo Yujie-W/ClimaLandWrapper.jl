@@ -106,14 +106,14 @@ function run_clima_example!(; fast_testing::Bool = true)
 
     # 6. set up ocean model
     _boundary_space = atmos_sim.domain.face_space.horizontal_space
-    land_mask = land_sea_mask(FT, _regrid_dir, _comms_ctx, _msk_data, "LSMASK", _boundary_space, mono = _mono_surface)
+    _land_mask = land_sea_mask(FT, _regrid_dir, _comms_ctx, _msk_data, "LSMASK", _boundary_space, mono = _mono_surface)
 
     @info _mode_name
     if _mode_name == "amip"
         @info "AMIP boundary conditions - do not expect energy conservation"
 
         ## ocean
-        SST_info = bcfile_info_init(
+        _SST_info = bcfile_info_init(
             FT,
             _regrid_dir,
             _sst_data,
@@ -122,23 +122,23 @@ function run_clima_example!(; fast_testing::Bool = true)
             _boundary_space,
             interpolate_daily = true,
             scaling_function = clean_sst, ## convert to Kelvin
-            land_mask = land_mask,
+            land_mask = _land_mask,
             date0 = _date0,
             mono = _mono_surface,
         )
 
-        update_midmonth_data!(_date0, SST_info)
-        SST_init = interpolate_midmonth_to_daily(FT, _date0, SST_info)
-        ocean_params = OceanSlabParameters(FT(20), FT(1500.0), FT(800.0), FT(280.0), FT(1e-3), FT(1e-5), FT(0.06))
+        update_midmonth_data!(_date0, _SST_info)
+        _SST_init = interpolate_midmonth_to_daily(FT, _date0, _SST_info)
+        _ocean_params = OceanSlabParameters(FT(20), FT(1500.0), FT(800.0), FT(280.0), FT(1e-3), FT(1e-5), FT(0.06))
         ocean_sim = (;
             integrator = (;
-                u = (; T_sfc = SST_init),
-                p = (; params = ocean_params, ocean_mask = (FT(1) .- land_mask)),
-                SST_info = SST_info,
+                u = (; T_sfc = _SST_init),
+                p = (; params = _ocean_params, ocean_mask = (FT(1) .- _land_mask)),
+                SST_info = _SST_info,
             )
         )
         ## sea ice
-        SIC_info = bcfile_info_init(
+        _SIC_info = bcfile_info_init(
             FT,
             _regrid_dir,
             _sic_data,
@@ -147,15 +147,15 @@ function run_clima_example!(; fast_testing::Bool = true)
             _boundary_space,
             interpolate_daily = true,
             scaling_function = clean_sic, ## convert to fractions
-            land_mask = land_mask,
+            land_mask = _land_mask,
             date0 = _date0,
             mono = _mono_surface,
         )
-        update_midmonth_data!(_date0, SIC_info)
-        SIC_init = interpolate_midmonth_to_daily(FT, _date0, SIC_info)
-        ice_mask = get_ice_mask.(SIC_init, _mono_surface)
-        ice_sim = ice_init(FT; tspan = _t_span, dt = _δt_cpl, space = _boundary_space, saveat = _saveat, ice_mask = ice_mask)
-        mode_specifics = (; name = _mode_name, SST_info = SST_info, SIC_info = SIC_info)
+        update_midmonth_data!(_date0, _SIC_info)
+        _SIC_init = interpolate_midmonth_to_daily(FT, _date0, _SIC_info)
+        _ice_mask = get_ice_mask.(_SIC_init, _mono_surface)
+        ice_sim = ice_init(FT; tspan = _t_span, dt = _δt_cpl, space = _boundary_space, saveat = _saveat, ice_mask = _ice_mask)
+        _mode_specifics = (; name = _mode_name, SST_info = _SIC_info, SIC_info = _SIC_info)
     elseif _mode_name == "slabplanet"
         ## ocean
         ocean_sim = ocean_init(
@@ -164,7 +164,7 @@ function run_clima_example!(; fast_testing::Bool = true)
             dt = _δt_cpl,
             space = _boundary_space,
             saveat = _saveat,
-            ocean_mask = (FT(1) .- land_mask), ## NB: this ocean mask includes areas covered by sea ice (unlike the one contained in the cs)
+            ocean_mask = (FT(1) .- _land_mask), ## NB: this ocean mask includes areas covered by sea ice (unlike the one contained in the cs)
         )
 
         ## sea ice
@@ -174,12 +174,39 @@ function run_clima_example!(; fast_testing::Bool = true)
                 p = (; params = ocean_sim.params, ice_mask = CORE_F.zeros(_boundary_space)),
             )
         )
-        mode_specifics = (; name = _mode_name, SST_info = nothing, SIC_info = nothing)
+        _mode_specifics = (; name = _mode_name, SST_info = nothing, SIC_info = nothing)
     end
 
+    # 7. set up coupler
+    _coupler_field_names = (:T_S, :z0m_S, :z0b_S, :ρ_sfc, :q_sfc, :albedo, :F_A, :F_E, :F_R, :P_liq, :P_snow)
+    _coupler_fields = NamedTuple{_coupler_field_names}(ntuple(i -> CORE_F.zeros(_boundary_space), length(_coupler_field_names)))
+    _model_sims = (atmos_sim = atmos_sim, ice_sim = ice_sim, ocean_sim = ocean_sim);
+    _dates = (; date = [_date], date0 = [_date0], date1 = [firstdayofmonth(_date0)])
 
+    # 8. set up diagnostics
+    _monthly_3d_diags_names = (:T, :u, :q_tot)
+    _monthly_2d_diags_names = (:precipitation, :toa, :T_sfc)
+    _monthly_3d_diags = (; fields = NamedTuple{_monthly_3d_diags_names}(ntuple(i -> CORE_F.zeros(atmos_sim.domain.center_space), length(_monthly_3d_diags_names))), ct = [0])
+    _monthly_2d_diags = (; fields = NamedTuple{_monthly_2d_diags_names}(ntuple(i -> CORE_F.zeros(_boundary_space), length(_monthly_2d_diags_names))), ct = [0])
 
+    # 9. set up coupler simulations
+    cs = CouplerSimulation{FT}(
+        _comms_ctx,
+        _t_span,
+        _dates,
+        _boundary_space,
+        _parsed_args,
+        _integrator.t,
+        FT(_δt_cpl),
+        (; land = _land_mask, ocean = zeros(_boundary_space), ice = zeros(_boundary_space)),
+        _coupler_fields,
+        _model_sims,
+        _mode_specifics,
+        _monthly_3d_diags,
+        _monthly_2d_diags,
+    );
 
+    # CONTINUE HERE: https://github.com/CliMA/ClimaCoupler.jl/blob/main/experiments/AMIP/moist_mpi_earth/coupler_driver.jl#L294
 
 
 
