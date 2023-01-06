@@ -43,12 +43,12 @@ function args_integrator(parsed_args, Y, p, tspan, ode_algo, callback)
     return (args, kwargs)
 end
 
-is_cts_algo(::DEB.AbstractODEAlgorithm) = false
+is_cts_algo(::AbstractODEAlgorithm) = false
 is_cts_algo(::TSTEP.DistributedODEAlgorithm) = true
 
 
 is_imex_CTS_algo(::TSTEP.IMEXARKAlgorithm) = true
-is_imex_CTS_algo(::DEB.AbstractODEAlgorithm) = false
+is_imex_CTS_algo(::AbstractODEAlgorithm) = false
 
 is_implicit(::ODE.OrdinaryDiffEqImplicitAlgorithm) = true
 is_implicit(::ODE.OrdinaryDiffEqAdaptiveImplicitAlgorithm) = true
@@ -56,7 +56,7 @@ is_implicit(ode_algo) = is_imex_CTS_algo(ode_algo)
 
 is_rosenbrock(::ODE.Rosenbrock23) = true
 is_rosenbrock(::ODE.Rosenbrock32) = true
-is_rosenbrock(::DEB.AbstractODEAlgorithm) = false
+is_rosenbrock(::AbstractODEAlgorithm) = false
 
 use_transform(ode_algo) = !(is_imex_CTS_algo(ode_algo) || is_rosenbrock(ode_algo))
 
@@ -322,7 +322,7 @@ function remaining_tendency!(Yₜ, Y, p, t)
     return Yₜ
 end
 
-additional_integrator_kwargs(::DEB.AbstractODEAlgorithm) = (;
+additional_integrator_kwargs(::AbstractODEAlgorithm) = (;
     adaptive = false,
     progress = isinteractive(),
     progress_steps = isinteractive() ? 1 : 1000,

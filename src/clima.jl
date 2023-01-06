@@ -55,7 +55,13 @@ function run_clima_example!(; fast_testing::Bool = true)
         mkpath(_regrid_dir);
     end;
 
-    # 4. set up parameter set and modules
+    # 4. get the path to necessary files
+    _coupler_dir = "/home/wyujie/DATASERVER/model/CLIMA/COUPLER/examples";
+    _msk_data    = "$(_coupler_dir)/seamask.nc";
+    _sic_data    = "$(_coupler_dir)/sic.nc";
+    _sst_data    = "$(_coupler_dir)/sst.nc";
+
+    # 5. set up atmos model
     parse_arg(pa, key, default) = isnothing(pa[key]) ? default : pa[key];
     _params = parameter_set(FT, _parsed_args);
     _job_id = job_id_from_parsed_args(cli_defaults(_settings), _parsed_args);
@@ -98,11 +104,98 @@ function run_clima_example!(; fast_testing::Bool = true)
     @time "get_integrator" _integrator = get_integrator(_integrator_args, _integrator_kwargs)
     atmos_sim = atmos_init(FT, Y, _integrator, params = _params);
 
-    # 4. get the path to necessary files
-    _coupler_dir = "/home/wyujie/DATASERVER/model/CLIMA/COUPLER/examples";
-    _msk_data    = "$(_coupler_dir)/seamask.nc";
-    _sic_data    = "$(_coupler_dir)/sic.nc";
-    _sst_data    = "$(_coupler_dir)/sst.nc";
+    # 6. set up ocean model
+    _boundary_space = atmos_sim.domain.face_space.horizontal_space
+    land_mask = land_sea_mask(FT, _regrid_dir, _comms_ctx, _msk_data, "LSMASK", _boundary_space, mono = _mono_surface)
+
+    @info _mode_name
+    if _mode_name == "amip"
+        @info "AMIP boundary conditions - do not expect energy conservation"
+
+        ## ocean
+        SST_info = bcfile_info_init(
+            FT,
+            _regrid_dir,
+            _sst_data,
+            "SST",
+            _comms_ctx,
+            _boundary_space,
+            interpolate_daily = true,
+            scaling_function = clean_sst, ## convert to Kelvin
+            land_mask = land_mask,
+            date0 = _date0,
+            mono = _mono_surface,
+        )
+
+        update_midmonth_data!(_date0, SST_info)
+        SST_init = interpolate_midmonth_to_daily(FT, _date0, SST_info)
+        ocean_params = OceanSlabParameters(FT(20), FT(1500.0), FT(800.0), FT(280.0), FT(1e-3), FT(1e-5), FT(0.06))
+        ocean_sim = (;
+            integrator = (;
+                u = (; T_sfc = SST_init),
+                p = (; params = ocean_params, ocean_mask = (FT(1) .- land_mask)),
+                SST_info = SST_info,
+            )
+        )
+        ## sea ice
+        SIC_info = bcfile_info_init(
+            FT,
+            _regrid_dir,
+            _sic_data,
+            "SEAICE",
+            _comms_ctx,
+            _boundary_space,
+            interpolate_daily = true,
+            scaling_function = clean_sic, ## convert to fractions
+            land_mask = land_mask,
+            date0 = _date0,
+            mono = _mono_surface,
+        )
+        update_midmonth_data!(_date0, SIC_info)
+        SIC_init = interpolate_midmonth_to_daily(FT, _date0, SIC_info)
+        ice_mask = get_ice_mask.(SIC_init, _mono_surface)
+        ice_sim = ice_init(FT; tspan = _t_span, dt = _δt_cpl, space = _boundary_space, saveat = _saveat, ice_mask = ice_mask)
+        mode_specifics = (; name = _mode_name, SST_info = SST_info, SIC_info = SIC_info)
+    elseif _mode_name == "slabplanet"
+        ## ocean
+        ocean_sim = ocean_init(
+            FT;
+            tspan = _t_span,
+            dt = _δt_cpl,
+            space = _boundary_space,
+            saveat = _saveat,
+            ocean_mask = (FT(1) .- land_mask), ## NB: this ocean mask includes areas covered by sea ice (unlike the one contained in the cs)
+        )
+
+        ## sea ice
+        ice_sim = (;
+            integrator = (;
+                u = (; T_sfc = CORE_F.ones(_boundary_space)),
+                p = (; params = ocean_sim.params, ice_mask = CORE_F.zeros(_boundary_space)),
+            )
+        )
+        mode_specifics = (; name = _mode_name, SST_info = nothing, SIC_info = nothing)
+    end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     return nothing
 end

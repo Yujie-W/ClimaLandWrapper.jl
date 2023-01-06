@@ -2,7 +2,7 @@
 
 julia_version = "1.8.3"
 manifest_format = "2.0"
-project_hash = "8bf38eee34ee12330a8a684a62b7d4faa18012f9"
+project_hash = "689153280a45b7f2aad0ecc1c03c0ca50a485987"
 
 [[deps.AMD]]
 deps = ["Libdl", "LinearAlgebra", "SparseArrays", "Test"]
@@ -147,9 +147,9 @@ version = "0.1.30"
 
 [[deps.CUDA]]
 deps = ["AbstractFFTs", "Adapt", "BFloat16s", "CEnum", "CompilerSupportLibraries_jll", "ExprTools", "GPUArrays", "GPUCompiler", "LLVM", "LazyArtifacts", "Libdl", "LinearAlgebra", "Logging", "Printf", "Random", "Random123", "RandomNumbers", "Reexport", "Requires", "SparseArrays", "SpecialFunctions", "TimerOutputs"]
-git-tree-sha1 = "49549e2c28ffb9cc77b3689dc10e46e6271e9452"
+git-tree-sha1 = "a56dff7bc49b5d5ac43d2c10eb2aef94becd5251"
 uuid = "052768ef-5323-5732-b1bb-66c8b64840ba"
-version = "3.12.0"
+version = "3.12.1"
 
 [[deps.Calculus]]
 deps = ["LinearAlgebra"]
@@ -194,6 +194,15 @@ deps = ["ClimaCore", "RecipesBase", "StaticArrays", "TriplotBase"]
 git-tree-sha1 = "2fb63d2573c4ba4aff1ed7829a6c91032be5d488"
 uuid = "cf7c7e5a-b407-4c48-9047-11a94a308626"
 version = "0.2.4"
+
+[[deps.ClimaCoreTempestRemap]]
+deps = ["ClimaComms", "ClimaCore", "Dates", "LinearAlgebra", "NCDatasets", "PkgVersion", "TempestRemap_jll", "Test"]
+git-tree-sha1 = "e41e43c8c330a054dd2d72e224e3b23eaef907ac"
+repo-rev = "main"
+repo-subdir = "lib/ClimaCoreTempestRemap"
+repo-url = "https://github.com/CliMA/ClimaCore.jl.git"
+uuid = "d934ef94-cdd4-4710-83d6-720549644b70"
+version = "0.3.6"
 
 [[deps.ClimaCoreVTK]]
 deps = ["ClimaCore", "WriteVTK"]
@@ -511,9 +520,9 @@ version = "0.1.2"
 
 [[deps.GPUCompiler]]
 deps = ["ExprTools", "InteractiveUtils", "LLVM", "Libdl", "Logging", "TimerOutputs", "UUIDs"]
-git-tree-sha1 = "30488903139ebf4c88f965e7e396f2d652f988ac"
+git-tree-sha1 = "48832a7cacbe56e591a7bef690c78b9d00bcc692"
 uuid = "61eb1bfa-7361-4325-ad38-22787b887f55"
-version = "0.16.7"
+version = "0.17.1"
 
 [[deps.GaussQuadrature]]
 deps = ["SpecialFunctions"]
@@ -788,9 +797,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[deps.LoopVectorization]]
 deps = ["ArrayInterface", "ArrayInterfaceCore", "ArrayInterfaceOffsetArrays", "ArrayInterfaceStaticArrays", "CPUSummary", "ChainRulesCore", "CloseOpenIntervals", "DocStringExtensions", "ForwardDiff", "HostCPUFeatures", "IfElse", "LayoutPointers", "LinearAlgebra", "OffsetArrays", "PolyesterWeave", "SIMDDualNumbers", "SIMDTypes", "SLEEFPirates", "SnoopPrecompile", "SpecialFunctions", "Static", "ThreadingUtilities", "UnPack", "VectorizationBase"]
-git-tree-sha1 = "bfb863cfc4ca05ab7804b46ee322530ea95afc67"
+git-tree-sha1 = "155132d68bc33c826dbdeb452c5d0a79e2d0e586"
 uuid = "bdcacae8-1622-11e9-2a5c-532679323890"
-version = "0.12.145"
+version = "0.12.146"
 
 [[deps.LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]
@@ -900,6 +909,12 @@ git-tree-sha1 = "f71d8950b724e9ff6110fc948dff5a329f901d64"
 uuid = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
 version = "1.12.8"
 
+[[deps.OpenBLAS32_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "9c6c2ed4b7acd2137b878eb96c68e63b76199d0f"
+uuid = "656ef2d0-ae68-5445-9ca0-591084a874a2"
+version = "0.3.17+0"
+
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
@@ -964,9 +979,9 @@ version = "0.2.1"
 
 [[deps.PkgVersion]]
 deps = ["Pkg"]
-git-tree-sha1 = "f6cf8e7944e50901594838951729a1861e668cb8"
+git-tree-sha1 = "192aa02cc47f6566c7a1a8907dee76f6eb0a7c90"
 uuid = "eebad327-c553-4316-9ea0-9fa01ccd7688"
-version = "0.3.2"
+version = "0.2.1"
 
 [[deps.Polyester]]
 deps = ["ArrayInterface", "BitTwiddlingConvenienceFunctions", "CPUSummary", "IfElse", "ManualMemory", "PolyesterWeave", "Requires", "Static", "StrideArraysCore", "ThreadingUtilities"]
@@ -1309,6 +1324,12 @@ deps = ["LinearAlgebra", "Markdown", "Requires", "SparseArrays"]
 git-tree-sha1 = "87baeec9ad6273ed8040a93fbbbaa039fa955f1f"
 uuid = "6aa5eb33-94cf-58f4-a9d0-e4b2c4fc25ea"
 version = "0.12.2"
+
+[[deps.TempestRemap_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "NetCDF_jll", "OpenBLAS32_jll", "Pkg"]
+git-tree-sha1 = "88c3818a492ad1a94b1aa440b01eab5d133209ff"
+uuid = "8573a8c5-1df0-515e-a024-abad257ee284"
+version = "2.1.6+1"
 
 [[deps.Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
