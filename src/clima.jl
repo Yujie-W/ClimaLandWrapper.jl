@@ -207,6 +207,9 @@ function run_clima_example!(; fast_testing::Bool = true)
     );
 
     # CONTINUE HERE: https://github.com/CliMA/ClimaCoupler.jl/blob/main/experiments/AMIP/moist_mpi_earth/coupler_driver.jl#L294
+    atmos_pull!(cs)
+    _parsed_args["ode_algo"] == "ARS343" ? ODE.step!(atmos_sim.integrator, _δt_cpl, true) : nothing
+    atmos_push!(cs)
 
 
 

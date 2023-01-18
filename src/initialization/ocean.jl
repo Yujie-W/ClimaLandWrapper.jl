@@ -19,13 +19,13 @@ end
     clean_sst(SST::FT, _info)
 Ensures that the space of the SST struct matches that of the mask, and converts the units to Kelvin (N.B.: this is dataset specific)
 """
-clean_sst(SST, _info) = (swap_space!(SST, axes(_info.land_mask)) .+ float_type(_info)(273.15))
+clean_sst(SST, _info) = (swap_space!(SST, axes((_info).land_mask)) .+ float_type(_info)(273.15))
 
 """
     clean_sic(SIC, _info)
 Ensures that the space of the SIC struct matches that of the mask, and converts the units from area % to area fraction.
 """
-clean_sic(SIC, _info) = swap_space!(SIC, axes(_info.land_mask)) ./ float_type(_info)(100.0)
+clean_sic(SIC, _info) = swap_space!(SIC, axes((_info).land_mask)) ./ float_type(_info)(100.0)
 
 #
 #
