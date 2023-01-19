@@ -108,7 +108,7 @@ function run_clima_example!(; fast_testing::Bool = true)
     _boundary_space = atmos_sim.domain.face_space.horizontal_space
     _land_mask = land_sea_mask(FT, _regrid_dir, _comms_ctx, _msk_data, "LSMASK", _boundary_space, mono = _mono_surface)
 
-    @info _mode_name
+    @info _mode_name;
     if _mode_name == "amip"
         @info "AMIP boundary conditions - do not expect energy conservation"
 
@@ -207,9 +207,14 @@ function run_clima_example!(; fast_testing::Bool = true)
     );
 
     # CONTINUE HERE: https://github.com/CliMA/ClimaCoupler.jl/blob/main/experiments/AMIP/moist_mpi_earth/coupler_driver.jl#L294
+
+
+    # ERROR here
     atmos_pull!(cs)
-    _parsed_args["ode_algo"] == "ARS343" ? ODE.step!(atmos_sim.integrator, _δt_cpl, true) : nothing
-    atmos_push!(cs)
+
+
+    #_parsed_args["ode_algo"] == "ARS343" ? ODE.step!(atmos_sim.integrator, _δt_cpl, true) : nothing
+    #atmos_push!(cs)
 
 
 
