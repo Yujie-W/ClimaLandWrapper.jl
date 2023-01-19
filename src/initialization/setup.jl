@@ -101,9 +101,9 @@ function clima_setup(; fast_testing::Bool = true)
         help = "EDMF coriolis [`nothing` (default), `Bomex`,`LifeCycleTan2018`,`Rico`,`ARM_SGP`,`DYCOMS_RF01`,`DYCOMS_RF02`,`GABLS`]"
         arg_type = String
         "--vert_diff"
-        help = "Vertical diffusion [`false` (default), `true`]"
+        help = "Vertical diffusion [`false`, `true` (default)]"
         arg_type = Bool
-        default = false
+        default = true
         "--surface_scheme"
         help = "Surface flux scheme [`nothing` (default), `bulk`, `monin_obukhov`]"
         arg_type = String

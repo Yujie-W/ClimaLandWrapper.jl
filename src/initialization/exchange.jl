@@ -10,6 +10,7 @@ updates F_A, F_R, P_liq, and F_E in place based on values used in the atmos_sim 
 function atmos_push!(cs)
     atmos_sim = cs.model_sims.atmos_sim
     csf = cs.fields
+    # THESE two vars not defined when vert_diff is set to nothing
     dummmy_remap!(csf.F_A, .-atmos_sim.integrator.p.dif_flux_energy_bc)
     dummmy_remap!(csf.F_E, .-atmos_sim.integrator.p.dif_flux_ρq_tot_bc)
     dummmy_remap!(csf.F_R, CORE_F.level(atmos_sim.integrator.p.ᶠradiation_flux, CORE_U.half))
@@ -202,8 +203,8 @@ function calculate_surface_fluxes_atmos_grid!(integrator, info_sfc)
         ATMOS.get_surface_fluxes!(Y, p, t, colidx, p.atmos.vert_diff)
         # corrections (accounting for inhomogeneous surfaces)
         # todo: get rid - shouldn't make any difference anyway # THESE VARS were not defined when vert_diff is set to nothing
-        # @. p.dif_flux_energy_bc[colidx] = CORE_G.WVector(correct_e_over_ice(p.surface_conditions[colidx], ice_mask[colidx]))
-        # @. p.dif_flux_ρq_tot_bc[colidx] = CORE_G.WVector(correct_q_over_ice(p.surface_conditions[colidx], ice_mask[colidx]))
+        @. p.dif_flux_energy_bc[colidx] = CORE_G.WVector(correct_e_over_ice(p.surface_conditions[colidx], ice_mask[colidx]))
+        @. p.dif_flux_ρq_tot_bc[colidx] = CORE_G.WVector(correct_q_over_ice(p.surface_conditions[colidx], ice_mask[colidx]))
     end
 end
 

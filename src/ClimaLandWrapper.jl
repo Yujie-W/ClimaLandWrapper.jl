@@ -47,7 +47,7 @@ using Dates: DateTime, Second, datetime2unix, day, days, firstdayofmonth, month,
 using Dierckx: Spline1D
 using DiffEqBase: AbstractODEAlgorithm
 using JLD2: jldsave, load
-using LinearAlgebra: norm_sqr
+using LinearAlgebra: dot, norm_sqr
 using NCDatasets: Dataset, NCDataset
 using NVTX: Domain, @range
 using Random: seed!
@@ -56,10 +56,13 @@ using StaticArrays: SVector
 using Land.EmeraldNamespace: MonoMLTreeSPAC
 
 
+include("types/checker.jl")
+
 include("initialization/atmos.jl"     )
 include("initialization/cache.jl"     )
 include("initialization/callback.jl"  )
 include("initialization/cases.jl"     )
+include("initialization/check.jl"     )
 include("initialization/config.jl"    )
 include("initialization/coupler.jl"   )
 include("initialization/exchange.jl"  )
@@ -68,8 +71,10 @@ include("initialization/integrator.jl")
 include("initialization/land.jl"      )
 include("initialization/numerics.jl"  )
 include("initialization/ocean.jl"     )
+include("initialization/slab.jl"      )
 include("initialization/setup.jl"     )
 include("initialization/surface.jl"   )
+include("initialization/time.jl"      )
 
 include("modification/climacore.jl")
 

@@ -210,23 +210,122 @@ function run_clima_example!(; fast_testing::Bool = true)
     atmos_pull!(cs)
     _parsed_args["ode_algo"] == "ARS343" ? ODE.step!(atmos_sim.integrator, _δt_cpl, true) : nothing
     atmos_push!(cs)
+    # also land pull and push
 
+    ## 11. reinitialize (TODO: avoid with interfaces)
+    ODE.reinit!(atmos_sim.integrator)
+    # ODE.reinit!(land_sim.integrator)
+    _mode_name == "amip" ? (ice_pull!(cs), ODE.reinit!(ice_sim.integrator)) : nothing
+    _mode_name == "slabplanet" ? (ocean_pull!(cs), ODE.reinit!(ocean_sim.integrator)) : nothing
 
-
-
+    # 11. initialize conservation info collector
+    if !_simulation.is_distributed && _energy_check && _mode_name == "slabplanet"
+        _conservation_check = OnlineConservationCheck([], [], [], [], [], [], [])
+        check_conservation(_conservation_check, cs, _integrator)
+    end
 
     # CONTINUE HERE: https://github.com/CliMA/ClimaCoupler.jl/blob/main/experiments/AMIP/moist_mpi_earth/coupler_driver.jl#L294
 
-
-
-
-
-
-
-
-
-
-
-
     return nothing
 end
+
+#=
+function solve_coupler!(cs, energy_check, simulation)
+    @info "Starting coupling loop"
+
+    (; model_sims, Δt_cpl, tspan) = cs;
+    (; atmos_sim, ocean_sim, ice_sim) = model_sims;
+    #(; atmos_sim, land_sim, ocean_sim, ice_sim) = model_sims;
+
+    ## step in time
+    walltime = @elapsed for t in ((tspan[1] + Δt_cpl):Δt_cpl:tspan[end])
+
+        cs.dates.date[1] = current_date(cs, t) # if not global, `date` is not updated.
+
+        ## print date on the first of month
+        @calendar_callback :(@show(cs.dates.date[1])) cs.dates.date[1] cs.dates.date1[1]
+
+        if cs.mode.name == "amip"
+
+            ## monthly read of boundary condition data for SST and SIC
+            @calendar_callback :(update_midmonth_data!(cs.dates.date[1], cs.mode.SST_info)) cs.dates.date[1] next_date_in_file(
+                cs.mode.SST_info,
+            )
+            SST = ocean_sim.integrator.u.T_sfc .= interpolate_midmonth_to_daily(cs.dates.date[1], cs.mode.SST_info)
+            @calendar_callback :(update_midmonth_data!(cs.dates.date[1], cs.mode.SIC_info)) cs.dates.date[1] next_date_in_file(
+                cs.mode.SIC_info,
+            )
+            SIC = interpolate_midmonth_to_daily(cs.dates.date[1], cs.mode.SIC_info)
+
+            ice_mask = ice_sim.integrator.p.ice_mask .= get_ice_mask.(SIC_init, mono_surface)
+
+            ## accumulate diagnostics at each timestep
+            accumulate_diags(collect_diags(cs, propertynames(cs.monthly_3d_diags.fields)), cs.monthly_3d_diags)
+            accumulate_diags(collect_diags(cs, propertynames(cs.monthly_2d_diags.fields)), cs.monthly_2d_diags)
+
+            ## save and reset monthly averages
+            @calendar_callback :(
+                map(x -> x ./= cs.monthly_3d_diags.ct[1], cs.monthly_3d_diags.fields),
+                save_hdf5(
+                    cs.comms_ctx,
+                    cs.monthly_3d_diags.fields,
+                    cs.dates.date[1],
+                    COUPLER_OUTPUT_DIR,
+                    name_tag = "3d_",
+                ),
+                map(x -> x .= FT(0), cs.monthly_3d_diags.fields),
+                cs.monthly_3d_diags.ct .= FT(0),
+            ) cs.dates.date[1] cs.dates.date1[1]
+            @calendar_callback :(
+                map(x -> x ./= cs.monthly_2d_diags.ct[1], cs.monthly_2d_diags.fields),
+                save_hdf5(
+                    cs.comms_ctx,
+                    cs.monthly_2d_diags.fields,
+                    cs.dates.date[1],
+                    COUPLER_OUTPUT_DIR,
+                    name_tag = "2d_",
+                ),
+                map(x -> x .= FT(0), cs.monthly_2d_diags.fields),
+                cs.monthly_2d_diags.ct .= FT(0),
+            ) cs.dates.date[1] cs.dates.date1[1]
+
+        end
+
+        ## run component models sequentially for one coupling timestep (Δt_cpl)
+        ## 1. atmos
+        COMMS.barrier(cs.comms_ctx)
+
+        atmos_pull!(cs)
+        ODE.step!(atmos_sim.integrator, t - atmos_sim.integrator.t, true) # NOTE: instead of Δt_cpl, to avoid accumulating roundoff error
+        atmos_push!(cs)
+
+        ## 2. land
+        # land_pull!(cs)
+        # step!(land_sim.integrator, t - land_sim.integrator.t, true)
+
+        ## 3. ocean
+        if cs.mode.name == "slabplanet"
+            ocean_pull!(cs)
+            ODE.step!(ocean_sim.integrator, t - ocean_sim.integrator.t, true)
+        end
+
+        ## 4. sea ice
+        if cs.mode.name == "amip"
+            ice_pull!(cs)
+            ODE.step!(ice_sim.integrator, t - ice_sim.integrator.t, true)
+        end
+
+        ## compute global energy
+        if !simulation.is_distributed && energy_check && cs.mode.name == "slabplanet"
+            check_conservation(conservation_check, cs)
+        end
+
+        ## step to the next calendar month
+        @calendar_callback :(cs.dates.date1[1] += Dates.Month(1)) cs.dates.date[1] cs.dates.date1[1]
+
+    end
+    @show walltime
+
+    return cs
+end
+=#
