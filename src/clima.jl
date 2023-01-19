@@ -206,20 +206,16 @@ function run_clima_example!(; fast_testing::Bool = true)
         _monthly_2d_diags,
     );
 
-    # CONTINUE HERE: https://github.com/CliMA/ClimaCoupler.jl/blob/main/experiments/AMIP/moist_mpi_earth/coupler_driver.jl#L294
-
-
-    # ERROR here
+    # 10. share states between models
     atmos_pull!(cs)
-
-
-    #_parsed_args["ode_algo"] == "ARS343" ? ODE.step!(atmos_sim.integrator, _δt_cpl, true) : nothing
-    #atmos_push!(cs)
+    _parsed_args["ode_algo"] == "ARS343" ? ODE.step!(atmos_sim.integrator, _δt_cpl, true) : nothing
+    atmos_push!(cs)
 
 
 
 
 
+    # CONTINUE HERE: https://github.com/CliMA/ClimaCoupler.jl/blob/main/experiments/AMIP/moist_mpi_earth/coupler_driver.jl#L294
 
 
 

@@ -47,7 +47,7 @@ is_cts_algo(::AbstractODEAlgorithm) = false
 is_cts_algo(::TSTEP.DistributedODEAlgorithm) = true
 
 
-is_imex_CTS_algo(::TSTEP.IMEXARKAlgorithm) = true
+is_imex_CTS_algo(::TSTEP.IMEXAlgorithm) = true
 is_imex_CTS_algo(::AbstractODEAlgorithm) = false
 
 is_implicit(::ODE.OrdinaryDiffEqImplicitAlgorithm) = true

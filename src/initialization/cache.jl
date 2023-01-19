@@ -52,7 +52,17 @@ function default_cache(Y, parsed_args, params, atmos, spaces, numerics, simulati
     (; energy_upwinding, tracer_upwinding, apply_limiter) = numerics
     ᶜcoord = CORE_F.local_geometry_field(Y.c).coordinates
     ᶠcoord = CORE_F.local_geometry_field(Y.f).coordinates
-    ᶜΦ = ATMOS.Parameters.grav(params) .* ᶜcoord.z
+    R_d = FT(ATMOS_P.R_d(params))
+    MSLP = FT(ATMOS_P.MSLP(params))
+    grav = FT(ATMOS_P.grav(params))
+    T_ref = FT(255)
+    ᶜΦ = ATMOS_P.grav(params) .* ᶜcoord.z
+    ᶜρ_ref = @. MSLP * exp(-grav * ᶜcoord.z / (R_d * T_ref)) / (R_d * T_ref)
+    ᶜp_ref = @. ᶜρ_ref * R_d * T_ref
+    if !parsed_args["use_reference_state"]
+        ᶜρ_ref .*= 0
+        ᶜp_ref .*= 0
+    end
     z_sfc = CORE_F.level(ᶠcoord.z, CORE_U.half)
     if eltype(ᶜcoord) <: CORE_G.LatLongZPoint
         Ω = ATMOS_P.Omega(params)
@@ -70,17 +80,31 @@ function default_cache(Y, parsed_args, params, atmos, spaces, numerics, simulati
         similar(CORE_F.level(Y.f, CORE_U.half), SFLUX.SurfaceFluxConditions{FT})
 
     ts_type = ATMOS.thermo_state_type(atmos.moisture_model, FT)
-    ghost_buffer = (
-        c = CORE_S.create_ghost_buffer(Y.c),
-        f = CORE_S.create_ghost_buffer(Y.f),
-        χ = CORE_S.create_ghost_buffer(Y.c.ρ), # for hyperdiffusion
-        χw = CORE_S.create_ghost_buffer(Y.f.w.components.data.:1), # for hyperdiffusion
-        χuₕ = CORE_S.create_ghost_buffer(Y.c.uₕ), # for hyperdiffusion
-    )
-    (:ρq_tot in propertynames(Y.c)) && (
-        ghost_buffer =
-            (ghost_buffer..., ᶜχρq_tot = CORE_S.create_ghost_buffer(Y.c.ρ))
-    )
+    quadrature_style = CORE_S.horizontal_space(axes(Y.c)).quadrature_style
+    skip_dss = !(quadrature_style isa CORE_S.Quadratures.GLL)
+    if skip_dss
+        ghost_buffer = (
+            c = nothing,
+            f = nothing,
+            χ = nothing, # for hyperdiffusion
+            χw = nothing, # for hyperdiffusion
+            χuₕ = nothing, # for hyperdiffusion
+            skip_dss = skip_dss, # skip DSS on non-GLL quadrature meshes
+        )
+        (:ρq_tot in propertynames(Y.c)) && (ghost_buffer = (ghost_buffer..., ᶜχρq_tot = nothing))
+    else
+        ghost_buffer = (
+            c = CORE_S.create_dss_buffer(Y.c),
+            f = CORE_S.create_dss_buffer(Y.f),
+            χ = CORE_S.create_dss_buffer(Y.c.ρ), # for hyperdiffusion
+            χw = CORE_S.create_dss_buffer(Y.f.w.components.data.:1), # for hyperdiffusion
+            χuₕ = CORE_S.create_dss_buffer(Y.c.uₕ), # for hyperdiffusion
+            skip_dss = skip_dss, # skip DSS on non-GLL quadrature meshes
+        )
+        (:ρq_tot in propertynames(Y.c)) && (
+            ghost_buffer = ( ghost_buffer..., ᶜχρq_tot = CORE_S.create_dss_buffer(Y.c.ρ))
+        )
+    end
     if apply_limiter
         tracers = filter(ATMOS.is_tracer_var, propertynames(Y.c))
         make_limiter = ᶜρc_name -> CORE_L.QuasiMonotoneLimiter(getproperty(Y.c, ᶜρc_name))
@@ -127,6 +151,8 @@ function default_cache(Y, parsed_args, params, atmos, spaces, numerics, simulati
         ᶜK = similar(Y.c, FT),
         ᶜΦ,
         ᶠgradᵥ_ᶜΦ = ᶠgradᵥ.(ᶜΦ),
+        ᶜρ_ref,
+        ᶜp_ref,
         ᶜts = similar(Y.c, ts_type),
         ᶜp = similar(Y.c, FT),
         ᶜT = similar(Y.c, FT),
@@ -138,8 +164,11 @@ function default_cache(Y, parsed_args, params, atmos, spaces, numerics, simulati
         sfc_conditions,
         z_sfc,
         T_sfc,
-        ts_sfc = similar(CORE_F.level(Y.f, CORE_U.half), ts_type),
-        ∂ᶜK∂ᶠw_data = similar(Y.c, CORE_O.StencilCoefs{-CORE_U.half, CORE_U.half, NTuple{2, FT}}),
+        ts_sfc = similar(CORE_S.level(Y.f, CORE_U.half), ts_type),
+        ∂ᶜK∂ᶠw_data = similar(
+            Y.c,
+            CORE_O.StencilCoefs{-CORE_U.half, CORE_U.half, NTuple{2, FT}},
+        ),
         params,
         energy_upwinding,
         tracer_upwinding,

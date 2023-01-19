@@ -5,7 +5,7 @@ is_ordinary_diffeq_newton(alg_or_tableau) =
         ODE.OrdinaryDiffEqNewtonAdaptiveAlgorithm,
     }
 
-is_imex_CTS_algo_type(alg_or_tableau) = alg_or_tableau <: TSTEP.AbstractIMEXARKTableau
+is_imex_CTS_algo_type(alg_or_tableau) = alg_or_tableau <: TSTEP.IMEXAlgorithmName
 
 is_implicit_type(::typeof(ODE.IMEXEuler)) = true
 is_implicit_type(alg_or_tableau) =
@@ -63,7 +63,7 @@ function ode_configuration(Y, parsed_args, atmos)
                 nothing
             end,
         );
-        return TSTEP.IMEXARKAlgorithm(alg_or_tableau(), newtons_method)
+        return TSTEP.IMEXAlgorithm(alg_or_tableau(), newtons_method)
     else
         return alg_or_tableau(; linsolve = ATMOS.linsolve!)
     end

@@ -188,22 +188,22 @@ function atmos_pull!(cs)
     #     parent(atmos_sim.integrator.p.z0m) .= parent(z0m_cpl)
     # end
 
-    calculate_surface_fluxes_atmos_grid!(atmos_sim.integrator, info_sfc, cs.parsed_args)
+    calculate_surface_fluxes_atmos_grid!(atmos_sim.integrator, info_sfc)
 
 end
 
-function calculate_surface_fluxes_atmos_grid!(integrator, info_sfc, parsed_args)
+function calculate_surface_fluxes_atmos_grid!(integrator, info_sfc)
     Y = integrator.u
     p = integrator.p
     t = integrator.t
     ice_mask = info_sfc.ice_mask
 
     CORE_F.bycolumn(axes(Y.c.uₕ)) do colidx
-        ATMOS.get_surface_fluxes!(Y, p, t, colidx, parsed_args["vert_diff"])
+        ATMOS.get_surface_fluxes!(Y, p, t, colidx, p.atmos.vert_diff)
         # corrections (accounting for inhomogeneous surfaces)
-        # todo: get rid - shouldn't make any difference anyway
-        @. p.dif_flux_energy_bc[colidx] = CORE_G.WVector(correct_e_over_ice(p.surface_conditions[colidx], ice_mask[colidx]))
-        @. p.dif_flux_ρq_tot_bc[colidx] = CORE_G.WVector(correct_q_over_ice(p.surface_conditions[colidx], ice_mask[colidx]))
+        # todo: get rid - shouldn't make any difference anyway # THESE VARS were not defined when vert_diff is set to nothing
+        # @. p.dif_flux_energy_bc[colidx] = CORE_G.WVector(correct_e_over_ice(p.surface_conditions[colidx], ice_mask[colidx]))
+        # @. p.dif_flux_ρq_tot_bc[colidx] = CORE_G.WVector(correct_q_over_ice(p.surface_conditions[colidx], ice_mask[colidx]))
     end
 end
 

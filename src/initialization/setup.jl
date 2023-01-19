@@ -308,7 +308,7 @@ function clima_setup(; fast_testing::Bool = true)
         arg_type = Bool
         default = false
 
-        # add perf_mode and surface_thermo_state_type into the args
+        # add more into the args
         "--perf_mode"
         help = "Perf mode used to initialize CliMA Atoms"
         arg_type = String
@@ -327,6 +327,10 @@ function clima_setup(; fast_testing::Bool = true)
         default = false
         "--check_conservation"
         help = "Whether to check conservation"
+        arg_type = Bool
+        default = false
+        "--use_reference_state"
+        help = "Whether to use reference state"
         arg_type = Bool
         default = false
     end
