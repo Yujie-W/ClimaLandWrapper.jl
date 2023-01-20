@@ -202,9 +202,9 @@ function calculate_surface_fluxes_atmos_grid!(integrator, info_sfc)
     CORE_F.bycolumn(axes(Y.c.uₕ)) do colidx
         ATMOS.get_surface_fluxes!(Y, p, t, colidx, p.atmos.vert_diff)
         # corrections (accounting for inhomogeneous surfaces)
-        # todo: get rid - shouldn't make any difference anyway # THESE VARS were not defined when vert_diff is set to nothing
-        @. p.dif_flux_energy_bc[colidx] = CORE_G.WVector(correct_e_over_ice(p.surface_conditions[colidx], ice_mask[colidx]))
-        @. p.dif_flux_ρq_tot_bc[colidx] = CORE_G.WVector(correct_q_over_ice(p.surface_conditions[colidx], ice_mask[colidx]))
+        # todo: get rid - shouldn't make any difference anyway # TODO: surface_conditions was not defined
+        # @. p.dif_flux_energy_bc[colidx] = CORE_G.WVector(correct_e_over_ice(p.surface_conditions[colidx], ice_mask[colidx]))
+        # @. p.dif_flux_ρq_tot_bc[colidx] = CORE_G.WVector(correct_q_over_ice(p.surface_conditions[colidx], ice_mask[colidx]))
     end
 end
 

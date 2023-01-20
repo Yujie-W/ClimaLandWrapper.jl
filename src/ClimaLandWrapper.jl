@@ -56,6 +56,9 @@ using StaticArrays: SVector
 using Land.EmeraldNamespace: MonoMLTreeSPAC
 
 
+include("modification/climaatmos.jl")
+include("modification/climacore.jl" )
+
 include("types/checker.jl")
 
 include("initialization/atmos.jl"     )
@@ -75,8 +78,6 @@ include("initialization/slab.jl"      )
 include("initialization/setup.jl"     )
 include("initialization/surface.jl"   )
 include("initialization/time.jl"      )
-
-include("modification/climacore.jl")
 
 include("clima.jl")
 

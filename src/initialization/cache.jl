@@ -184,7 +184,6 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
     idealized_insolation = parsed_args["idealized_insolation"];
     idealized_clouds = parsed_args["idealized_clouds"];
     κ₄ = parsed_args["kappa_4"];
-    disable_qt_hyperdiffusion = parsed_args["disable_qt_hyperdiffusion"];
     rayleigh_sponge = parsed_args["rayleigh_sponge"];
     zd_rayleigh = parsed_args["zd_rayleigh"];
     α_rayleigh_uₕ = parsed_args["alpha_rayleigh_uh"];
@@ -220,7 +219,6 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
         ATMOS.radiation_model_cache(Y, params, radiation_mode)
     end
 
-
     return merge(
         ATMOS.hyperdiffusion_cache(atmos.hyperdiff, Y),
         ATMOS.rayleigh_sponge_cache(atmos.rayleigh_sponge, Y),
@@ -232,23 +230,13 @@ function additional_cache(Y, parsed_args, params, atmos, dt; use_tempest_mode = 
         ATMOS.forcing_cache(Y, forcing_type),
         radiation_cache,
         ATMOS.vertical_diffusion_boundary_layer_cache(Y, atmos),
-        atmos.non_orographic_gravity_wave ? ATMOS.gravity_wave_cache(atmos.model_config, Y, FT) : NamedTuple(),
-        (;
-            tendency_knobs = (;
-                non_orographic_gravity_wave = atmos.non_orographic_gravity_wave
-            )
-        ),
+        ATMOS.non_orographic_gravity_wave_cache(atmos.non_orographic_gravity_wave, atmos.model_config, Y),
+        # ATMOS.orographic_gravity_wave_cache(atmos.orographic_gravity_wave, TOPO_DIR, Y, cs.comms_ctx), #TODO: fix it later
+        (; tendency_knobs = (; non_orographic_gravity_wave = atmos.non_orographic_gravity_wave)),
         (; thermo_dispatcher),
         (; Δt = dt),
         (; compressibility_model),
-        turbconv_cache(
-            Y,
-            turbconv_model,
-            atmos,
-            namelist,
-            params,
-            parsed_args,
-        ),
+        turbconv_cache(Y, turbconv_model, atmos, namelist, params, parsed_args),
     )
 end
 

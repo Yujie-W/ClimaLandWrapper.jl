@@ -283,10 +283,6 @@ function clima_setup(; fast_testing::Bool = true)
         help = "Apply filter to moisture"
         arg_type = Bool
         default = false
-        "--disable_qt_hyperdiffusion"
-        help = "Disable the hyperdiffusion of specific humidity [`true`, `false` (default)] (TODO: reconcile this with ρe_tot or remove if instability fixed with limiters)"
-        arg_type = Bool
-        default = false
         "--start_date"
         help = "Start date of the simulation"
         arg_type = String
@@ -333,6 +329,18 @@ function clima_setup(; fast_testing::Bool = true)
         help = "Whether to use reference state"
         arg_type = Bool
         default = false
+        "--orographic_gravity_wave"
+        help = "Whether to use orographic_gravity_wave"
+        arg_type = Bool
+        default = false
+        "--enable_qt_hyperdiffusion"
+        help = "Whether to enable qt hyperdiffusion"
+        arg_type = Bool
+        default = true
+        "--hyperdiff_name"
+        help = "Hyperdiffusion name ['ClimaHyperdiffusion', 'TempestHyperdiffusion', 'none' (default)]"
+        arg_type = String
+        default = "none"
     end
     _parsed_args = parse_args(ARGS, _settings);
 

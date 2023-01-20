@@ -21,7 +21,6 @@ function run_clima_example!(; fast_testing::Bool = true)
     _case_name                 = _parsed_args["turbconv_case"];
     _date                      = DateTime(_parsed_args["start_date"], dateformat"yyyymmdd");
     _date0                     = deepcopy(_date);
-    _disable_qt_hyperdiffusion = _parsed_args["disable_qt_hyperdiffusion"];
     _energy_check              = _parsed_args["energy_check"];
     _fps                       = _parsed_args["fps"];
     _hyperdiff                 = _parsed_args["hyperdiff"];

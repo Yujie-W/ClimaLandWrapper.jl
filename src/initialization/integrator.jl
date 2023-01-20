@@ -105,7 +105,7 @@ function additional_tendency!(Yₜ, Y, p, t)
     end
     # TODO: make bycolumn-able
     (; non_orographic_gravity_wave) = p.tendency_knobs
-    non_orographic_gravity_wave && ATMOS.gravity_wave_tendency!(Yₜ, Y, p, t)
+    !isnothing(non_orographic_gravity_wave) && ATMOS.gravity_wave_tendency!(Yₜ, Y, p, t)
 end
 
 explicit_sgs_flux_tendency!(Yₜ, Y, p, t, colidx, ::Nothing) = nothing
